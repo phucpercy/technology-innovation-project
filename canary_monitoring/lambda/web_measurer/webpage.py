@@ -14,13 +14,18 @@ class WebPage:
         self._load_time_secs = None
         http = urllib3.PoolManager()
         start_time = perf_counter()
-        response = http.request("GET", self._url)
-        if response.status == 200:
-            self._availability = True
-            self._page = response.data
-            end_time = perf_counter()
-            self._load_time_secs = end_time - start_time
-            self._page_size = len(self._page)
+        try:
+            response = http.request("GET", self._url)
+            if response.status == 200:
+                self._availability = True
+                self._page = response.data
+                end_time = perf_counter()
+                self._load_time_secs = end_time - start_time
+                self._page_size = len(self._page)
+        except Exception as err:
+            print(err)
+
+
 
     @property
     def page_size(self):
