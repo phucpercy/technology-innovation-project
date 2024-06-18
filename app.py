@@ -3,11 +3,10 @@ import os
 
 import aws_cdk as cdk
 
-from technology_innovation_project.technology_innovation_project_stack import TechnologyInnovationProjectStack
-
+from canary_monitoring.stack.canary_monitoring_stack import CanaryMonitoringStack
 
 app = cdk.App()
-TechnologyInnovationProjectStack(app, "TechnologyInnovationProjectStack",
+CanaryMonitoringStack(app, "CanaryMonitoringStack",
     # If you don't specify 'env', this stack will be environment-agnostic.
     # Account/Region-dependent features and context lookups will not work,
     # but a single synthesized template can be deployed anywhere.
