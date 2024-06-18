@@ -5,7 +5,9 @@ from aws_cdk import (
     aws_lambda as _lambda,
     aws_apigateway as apigateway,
     aws_s3 as s3, RemovalPolicy,
-    aws_iam as iam
+    aws_iam as iam,
+    aws_events as events,
+    aws_events_targets as events_targets, Duration
 )
 from aws_cdk.aws_cloudwatch import TextWidget, GraphWidget
 from constructs import Construct
@@ -44,7 +46,7 @@ class CanaryMonitoringStack(Stack):
             "MonitoringFunction",
             runtime = _lambda.Runtime.PYTHON_3_11, # Choose any supported Python runtime
             code = _lambda.Code.from_asset("canary_monitoring/lambda"), # Points to the lambda directory
-            handler = "resources_monitor.measuring_handler", # Points to the 'helloworld' file in the lambda directory
+            handler = "resources_monitor.measuring_handler",
         )
 
         monitoring_function.add_to_role_policy(iam.PolicyStatement(
@@ -61,6 +63,15 @@ class CanaryMonitoringStack(Stack):
                 '*',
             ],
         ))
+
+        # Define Event Bridge Rule
+        monitoring_scheduled_rule = events.Rule(
+            self,
+            f'EventBridgeRule',
+            schedule=events.Schedule.rate(Duration.minutes(60)),
+            targets=[events_targets.LambdaFunction(handler=monitoring_function,)],
+            rule_name=f'Monitoring Schedule',
+        )
 
         # Define the API Gateway resource
         api = apigateway.LambdaRestApi(
