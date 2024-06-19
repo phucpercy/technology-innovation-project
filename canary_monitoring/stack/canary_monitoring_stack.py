@@ -68,9 +68,9 @@ class CanaryMonitoringStack(Stack):
         monitoring_scheduled_rule = events.Rule(
             self,
             f'EventBridgeRule',
-            schedule=events.Schedule.rate(Duration.minutes(60)),
+            schedule=events.Schedule.rate(Duration.minutes(1)),
             targets=[events_targets.LambdaFunction(handler=monitoring_function,)],
-            rule_name=f'Monitoring Schedule',
+            rule_name=f'MonitoringSchedule',
         )
 
         # Define the API Gateway resource

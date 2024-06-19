@@ -1,0 +1,16 @@
+{
+  "urls": [
+    {
+      "url": "https://www.swinburne.edu.au",
+      "name": "Swinburne University Website"
+    },
+    {
+      "url": "https://eca.edu.au",
+      "name": "ECA Website",
+    },
+    {
+      "url": "https://www.bbc.com/news",
+      "name": "BBC News Website"
+    }
+  ]
+}
