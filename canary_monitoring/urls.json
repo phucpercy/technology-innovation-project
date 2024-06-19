@@ -2,15 +2,18 @@
   "urls": [
     {
       "url": "https://www.swinburne.edu.au",
-      "name": "Swinburne University Website"
+      "name": "Swinburne University Website",
+      "metricNames": ["Availability", "Page Time", "Page Size"]
     },
     {
       "url": "https://eca.edu.au",
       "name": "ECA Website",
+      "metricNames": ["Availability", "Page Time", "Page Size"]
     },
     {
       "url": "https://www.bbc.com/news",
-      "name": "BBC News Website"
+      "name": "BBC News Website",
+      "metricNames": ["Availability", "Page Time", "Page Size"]
     }
   ]
 }

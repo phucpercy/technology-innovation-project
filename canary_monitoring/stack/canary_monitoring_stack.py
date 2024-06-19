@@ -1,4 +1,5 @@
-import boto3
+import json
+
 from aws_cdk import (
     Stack,
     aws_cloudwatch as cw,
@@ -13,6 +14,30 @@ from aws_cdk.aws_cloudwatch import TextWidget, GraphWidget
 from constructs import Construct
 
 
+def create_metric_widgets():
+    with open('canary_monitoring/urls.json', 'r') as fr:
+        data = json.load(fr)
+    
+    widgets = []
+    for url_conf in data['urls']:
+        widgets.append(TextWidget(
+            markdown = f'## {url_conf["name"]}',
+            width = 24,
+            height = 1
+        ))
+        for metric in url_conf['metricNames']:
+            widgets.append(GraphWidget(
+                left = [cw.Metric(
+                    metric_name = metric,
+                    namespace = 'Monitor',
+                    dimensions_map= {'URL': url_conf['url']},
+                )],
+                width = 6,
+                height = 4,
+            ))
+    return widgets
+
+
 class CanaryMonitoringStack(Stack):
 
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
@@ -24,21 +49,13 @@ class CanaryMonitoringStack(Stack):
         dashboard = cw.Dashboard(self, "Web Monitor Dashboard")
         dashboard.add_widgets(
             TextWidget(
-                markdown = 'Web Monitor Dashboard',
+                markdown = '# Web Monitor Dashboard',
                 width = 24,
                 height = 2
             )
         )
-        dashboard.add_widgets(
-            GraphWidget(
-                left = [cw.Metric(
-                    metric_name = 'Page Time',
-                    namespace = 'Monitor',
-                )],
-                width = 6,
-                height = 3,
-            )
-        )
+        widgets = create_metric_widgets()
+        dashboard.add_widgets(*widgets)
 
         # Define the Lambda function resource
         monitoring_function = _lambda.Function(
