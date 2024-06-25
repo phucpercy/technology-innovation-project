@@ -20,19 +20,50 @@ from aws_cdk.aws_cloudwatch import TextWidget, GraphWidget
 from constructs import Construct
 
 
+def add_lambda_subscription(topic: sns.Topic, function):
+    lambda_subscription = sns_subscriptions.LambdaSubscription(function)
+    topic.add_subscription(lambda_subscription)
+
+
 class CanaryMonitoringStack(Stack):
 
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        # The code that defines your stack goes here
-
         # Define the Lambda function resource
+        resources_monitor_function = self.create_lambda_resources_monitor()
+        monitoring_alarm_function = self.create_lambda_monitoring_alarm()
+
+        # Define Event Bridge Rule
+        self.create_event_bridge_rule(resources_monitor_function, Duration.minutes(1))
+
+        # Define the API Gateway resource
+        self.create_test_api(resources_monitor_function)
+
+        # S3 bucket
+        self.create_s3_bucket("tip-monitoring-url-resources")
+
+        # Create DynamoDB
+        self.create_dynamo_database()
+
+        # Create SNS topic
+        sns_alarm_topic = self.create_sns_topic("MonitoringAbnormal")
+        add_lambda_subscription(sns_alarm_topic, monitoring_alarm_function)
+        # Sample cdn output to test trigger sns topic
+        self.create_test_cfn_output(sns_alarm_topic)
+
+        # Custom CloudWatch dashboard
+        dashboard = self.create_cloudwatch_dashboard()
+        widgets = self.create_metric_widgets(sns_alarm_topic)
+        dashboard.add_widgets(*widgets)
+
+
+    def create_lambda_resources_monitor(self):
         monitoring_function = _lambda.Function(
             self,
             "MonitoringFunction",
-            runtime = _lambda.Runtime.PYTHON_3_11, # Choose any supported Python runtime
-            code = _lambda.Code.from_asset("canary_monitoring/lambda"), # Points to the lambda directory
+            runtime = _lambda.Runtime.PYTHON_3_11,
+            code = _lambda.Code.from_asset("canary_monitoring/lambda"),
             handler = "resources_monitor.measuring_handler",
             initial_policy=[
                 iam.PolicyStatement(
@@ -52,46 +83,62 @@ class CanaryMonitoringStack(Stack):
             ]
         )
 
+        return monitoring_function
+
+
+    def create_lambda_monitoring_alarm(self):
         monitoring_alarm_function = _lambda.Function(
             self,
             "MonitoringAlarmFunction",
-            runtime = _lambda.Runtime.PYTHON_3_11, # Choose any supported Python runtime
-            code = _lambda.Code.from_asset("canary_monitoring/lambda"), # Points to the lambda directory
+            runtime = _lambda.Runtime.PYTHON_3_11,
+            code = _lambda.Code.from_asset("canary_monitoring/lambda"),
             handler = "monitoring_alarm.lambda_handler",
         )
 
-        # Define Event Bridge Rule
+        return monitoring_alarm_function
+
+
+    def create_event_bridge_rule(self, function, duration):
         monitoring_scheduled_rule = events.Rule(
             self,
             f'EventBridgeRule',
-            schedule=events.Schedule.rate(Duration.minutes(1)),
-            targets=[events_targets.LambdaFunction(handler=monitoring_function,)],
+            schedule=events.Schedule.rate(duration),
+            targets=[events_targets.LambdaFunction(handler=function,)],
             rule_name=f'MonitoringSchedule',
         )
 
-        # Define the API Gateway resource
+        return monitoring_scheduled_rule
+
+
+    def create_test_api(self, function):
         api = apigateway.LambdaRestApi(
             self,
             "Test Measuring Api",
-            handler = monitoring_function,
-            proxy = False,
+            handler=function,
+            proxy=False,
         )
 
-        # Define the '/test' resource with a GET method
+        # Define the resource with a GET method
         test_handler = api.root.add_resource("monitor")
         test_handler.add_method("GET")
 
-        # S3 bucket
-        s3.Bucket(
+        return api
+
+    
+    def create_s3_bucket(self, name):
+        bucket = s3.Bucket(
             self,
             id="canary_urls",
-            bucket_name="tip-monitoring-url-resources",
+            bucket_name=name,
             removal_policy=RemovalPolicy.DESTROY,
             auto_delete_objects=True
         )
 
-        # Create DynamoDB
-        dynamodb.Table(
+        return bucket
+
+
+    def create_dynamo_database(self):
+        table = dynamodb.Table(
             self, "MonitoringAlarmDB",
             partition_key=dynamodb.Attribute(
                 name="id",
@@ -107,27 +154,29 @@ class CanaryMonitoringStack(Stack):
             removal_policy=RemovalPolicy.DESTROY
         )
 
-        # Create SNS topic
+        return table
+    
+    
+    def create_sns_topic(self, topic_name):
         sns_alarm_topic = sns.Topic(
             self,
             "SNSMonitoringAlarm",
-            topic_name="MonitoringAbnormal"
+            topic_name=topic_name
         )
-        lambda_subscription = sns_subscriptions.LambdaSubscription(
-            monitoring_alarm_function
-        )
-        sns_alarm_topic.add_subscription(
-            lambda_subscription
-        )
-        # Sample cdn output to test trigger sns topic
+
+        return sns_alarm_topic
+    
+
+    def create_test_cfn_output(self, topic: sns.Topic):
         CfnOutput(
             self,
             'snsTopicARN',
-            value=sns_alarm_topic.topic_arn,
+            value=topic.topic_arn,
             description='The SNS notification-topic ARN for test'
         )
+    
 
-        # Custom CloudWatch dashboard
+    def create_cloudwatch_dashboard(self):
         dashboard = cw.Dashboard(self, "Web Monitor Dashboard")
         dashboard.add_widgets(
             TextWidget(
@@ -136,8 +185,9 @@ class CanaryMonitoringStack(Stack):
                 height = 2
             )
         )
-        widgets = self.create_metric_widgets(sns_alarm_topic)
-        dashboard.add_widgets(*widgets)
+
+        return dashboard
+
 
     def create_metric_widgets(self, topic: sns.Topic):
         with open('canary_monitoring/urls.json', 'r') as fr:
