@@ -1,8 +1,6 @@
 import json
 
 from aws_cdk import (
-    Stack,
-    Duration,
     aws_cloudwatch as cw,
     aws_cloudwatch_actions as actions,
     aws_lambda as _lambda,
@@ -23,6 +21,11 @@ from constructs import Construct
 def add_lambda_subscription(topic: sns.Topic, function):
     lambda_subscription = sns_subscriptions.LambdaSubscription(function)
     topic.add_subscription(lambda_subscription)
+
+def add_email_subscription(topic: sns.Topic, email_list):
+    for email in email_list:
+        email_subscription = sns_subscriptions.EmailSubscription(email_address=email)
+        topic.add_subscription(email_subscription)
 
 
 class CanaryMonitoringStack(Stack):
@@ -49,6 +52,8 @@ class CanaryMonitoringStack(Stack):
         # Create SNS topic
         sns_alarm_topic = self.create_sns_topic("MonitoringAbnormal")
         add_lambda_subscription(sns_alarm_topic, monitoring_alarm_function)
+        email_list = ['phucpercy@gmail.com']
+        add_email_subscription(sns_alarm_topic, email_list)
         # Sample cdn output to test trigger sns topic
         self.create_test_cfn_output(sns_alarm_topic)
 
@@ -76,9 +81,7 @@ class CanaryMonitoringStack(Stack):
                         's3-object-lambda:Get*',
                         's3-object-lambda:List*'
                     ],
-                    resources=[
-                        '*',
-                    ],
+                    resources=['*',],
                 )
             ]
         )
@@ -93,6 +96,15 @@ class CanaryMonitoringStack(Stack):
             runtime = _lambda.Runtime.PYTHON_3_11,
             code = _lambda.Code.from_asset("canary_monitoring/lambda"),
             handler = "monitoring_alarm.lambda_handler",
+            initial_policy=[
+                iam.PolicyStatement(
+                    effect=iam.Effect.ALLOW,
+                    actions=[
+                        'dynamodb:PutItem*'
+                    ],
+                    resources=['*', ],
+                )
+            ]
         )
 
         return monitoring_alarm_function
