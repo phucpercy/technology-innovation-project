@@ -3,17 +3,29 @@
     {
       "url": "https://www.swinburne.edu.au",
       "name": "Swinburne University Website",
-      "metricNames": ["Availability", "Page Time", "Page Size"]
+      "metrics": [
+        {"type": "Availability", "threshold": "<1"},
+        {"type": "Page Time", "threshold": ">=0.5"},
+        {"type": "Page Size", "threshold": "<178939,>178939"}
+      ]
     },
     {
       "url": "https://eca.edu.au",
       "name": "ECA Website",
-      "metricNames": ["Availability", "Page Time", "Page Size"]
+      "metrics": [
+        {"type": "Availability", "threshold": "<1"},
+        {"type": "Page Time", "threshold": ">=0.5"},
+        {"type": "Page Size", "threshold": "<81165,>81165"}
+      ]
     },
     {
       "url": "https://www.bbc.com/news",
       "name": "BBC News Website",
-      "metricNames": ["Availability", "Page Time", "Page Size"]
+      "metrics": [
+        {"type": "Availability", "threshold": "<1"},
+        {"type": "Page Time", "threshold": ">=0.5"},
+        {"type": "Page Size", "threshold": "<299261,>299261"}
+      ]
     }
   ]
 }

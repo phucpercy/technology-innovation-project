@@ -1,4 +1,5 @@
 import json
+import re
 
 from aws_cdk import (
     Stack,
@@ -23,6 +24,33 @@ from constructs import Construct
 def add_lambda_subscription(topic: sns.Topic, function):
     lambda_subscription = sns_subscriptions.LambdaSubscription(function)
     topic.add_subscription(lambda_subscription)
+
+
+def parse_threshold_expression(express: str):
+    if len(express) == 0:
+        return []
+
+    op_map = {
+        "<": cw.ComparisonOperator.LESS_THAN_THRESHOLD,
+        ">": cw.ComparisonOperator.GREATER_THAN_THRESHOLD,
+        "<=": cw.ComparisonOperator.LESS_THAN_OR_EQUAL_TO_THRESHOLD,
+        ">=": cw.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+    }
+
+    exps = express.split(',')
+    thresholds = []
+    for exp in exps:
+        exp = exp.strip()
+        regex = re.compile(r"[><]=?")
+        m = regex.match(exp)
+        if m is None:
+            raise RuntimeError(f"'{express}' is not a valid threshold expression.")
+        compare_op = m.group(0)
+        threshold = float(exp[len(compare_op):])
+        op = op_map[compare_op]
+        thresholds.append((op, threshold))
+
+    return thresholds
 
 
 class CanaryMonitoringStack(Stack):
@@ -200,21 +228,24 @@ class CanaryMonitoringStack(Stack):
                 width = 24,
                 height = 1
             ))
-            for metric_name in url_conf['metricNames']:
+            for metric_conf in url_conf['metrics']:
+                metric_type = metric_conf['type']
                 metric = cw.Metric(
-                    metric_name = metric_name,
+                    metric_name = metric_type,
                     namespace = 'Monitor',
                     dimensions_map= {'URL': url_conf['url']},
                     period=Duration.minutes(1),
                 )
-                if metric_name == 'Page Time':
+                threshold_exp = metric_conf['threshold']
+                thresholds = parse_threshold_expression(threshold_exp)
+                for i, (op, threshold) in enumerate(thresholds):
                     alarm: cw.Alarm = metric.create_alarm(
                         self,
-                        f'Alarm-{metric_name}-{url_conf["url"]}',
-                        threshold=0.5,
-                        evaluation_periods=2,
+                        f'Alarm-{metric_type}-{url_conf["url"]}-{i}',
+                        threshold=threshold,
+                        evaluation_periods=1,
                         datapoints_to_alarm=1,
-                        comparison_operator=cw.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD
+                        comparison_operator=op
                     )
                     alarm.add_alarm_action(actions.SnsAction(topic))
                 widgets.append(GraphWidget(
