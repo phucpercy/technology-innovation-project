@@ -20,6 +20,8 @@ from aws_cdk import (
 from aws_cdk.aws_cloudwatch import TextWidget, GraphWidget
 from constructs import Construct
 
+import config
+
 
 def add_lambda_subscription(topic: sns.Topic, function):
     lambda_subscription = sns_subscriptions.LambdaSubscription(function)
@@ -63,19 +65,22 @@ class CanaryMonitoringStack(Stack):
         monitoring_alarm_function = self.create_lambda_monitoring_alarm()
 
         # Define Event Bridge Rule
-        self.create_event_bridge_rule(resources_monitor_function, Duration.minutes(1))
+        self.create_event_bridge_rule(
+            resources_monitor_function,
+            Duration.seconds(config.MONITOR_INTERVAL_SECONDS)
+        )
 
         # Define the API Gateway resource
         self.create_test_api(resources_monitor_function)
 
         # S3 bucket
-        self.create_s3_bucket("tip-monitoring-url-resources")
+        self.create_s3_bucket(config.S3_BUCKET_NAME)
 
         # Create DynamoDB
-        self.create_dynamo_database()
+        self.create_dynamo_database(config.DYNAMO_TABLE_NAME)
 
         # Create SNS topic
-        sns_alarm_topic = self.create_sns_topic("MonitoringAbnormal")
+        sns_alarm_topic = self.create_sns_topic(config.SNS_TOPIC_NAME)
         add_lambda_subscription(sns_alarm_topic, monitoring_alarm_function)
         # Sample cdn output to test trigger sns topic
         self.create_test_cfn_output(sns_alarm_topic)
@@ -93,6 +98,11 @@ class CanaryMonitoringStack(Stack):
             runtime = _lambda.Runtime.PYTHON_3_11,
             code = _lambda.Code.from_asset("canary_monitoring/lambda"),
             handler = "resources_monitor.measuring_handler",
+            environment={
+                "S3_BUCKET_NAME": config.S3_BUCKET_NAME,
+                "URL_FILE_NAME": config.URL_FILE_NAME,
+                "METRICS_NAMESPACE": config.METRICS_NAMESPACE,
+            },
             initial_policy=[
                 iam.PolicyStatement(
                     effect=iam.Effect.ALLOW,
@@ -165,7 +175,7 @@ class CanaryMonitoringStack(Stack):
         return bucket
 
 
-    def create_dynamo_database(self):
+    def create_dynamo_database(self, table_name):
         table = dynamodb.Table(
             self, "MonitoringAlarmDB",
             partition_key=dynamodb.Attribute(
@@ -176,7 +186,7 @@ class CanaryMonitoringStack(Stack):
                 name="timestamp",
                 type=dynamodb.AttributeType.STRING
             ),
-            table_name="MonitoringAlarm",
+            table_name=table_name,
             read_capacity=5,
             write_capacity=5,
             removal_policy=RemovalPolicy.DESTROY
@@ -220,7 +230,7 @@ class CanaryMonitoringStack(Stack):
     def create_metric_widgets(self, topic: sns.Topic):
         with open('canary_monitoring/urls.json', 'r') as fr:
             data = json.load(fr)
-        
+
         widgets = []
         for url_conf in data['urls']:
             widgets.append(TextWidget(
@@ -232,7 +242,7 @@ class CanaryMonitoringStack(Stack):
                 metric_type = metric_conf['type']
                 metric = cw.Metric(
                     metric_name = metric_type,
-                    namespace = 'Monitor',
+                    namespace = config.METRICS_NAMESPACE,
                     dimensions_map= {'URL': url_conf['url']},
                     period=Duration.minutes(1),
                 )

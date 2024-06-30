@@ -1,4 +1,5 @@
 import json
+import os
 
 import boto3
 import boto3.exceptions
@@ -33,11 +34,11 @@ METRIC_UNIT_MAP = {
 }
 
 
-def retrieve_url_resources():
+def retrieve_url_resources(s3_bucket_name, filename):
     s3_client = boto3.client('s3')
 
     try:
-        response = s3_client.get_object(Bucket='tip-monitoring-url-resources', Key='urls.json')
+        response = s3_client.get_object(Bucket=s3_bucket_name, Key=filename)
     except s3_client.exceptions.NoSuchKey:
         return json.loads(STUB_JSON)
 
@@ -64,7 +65,7 @@ def monitor_pages(urls):
 
     return data
 
-def push_metrics(data, url_resources):
+def push_metrics(data, url_resources, namespace):
     # {url: {metric_name1: unit1, metric_name2, unit2}}
     url_metric_confs = {}
     for conf in url_resources['urls']:
@@ -89,17 +90,21 @@ def push_metrics(data, url_resources):
 
     cloudwatch = boto3.client('cloudwatch')
     cloudwatch.put_metric_data(
-        Namespace='Monitor',
+        Namespace=namespace,
         MetricData=metric_data
     )
 
 def measuring_handler(event, context):
-    url_resources = retrieve_url_resources()
+    s3_bucket_name = os.environ("S3_BUCKET_NAME")
+    url_filename = os.environ("URL_FILE_NAME")
+    namespace = os.environ("METRICS_NAMESPACE")
+
+    url_resources = retrieve_url_resources(s3_bucket_name, url_filename)
     urls = []
     for i in url_resources['urls']:
         urls.append(i['url'])
     metric_data = monitor_pages(urls)
-    push_metrics(metric_data, url_resources)
+    push_metrics(metric_data, url_resources, namespace)
 
     return {
         "statusCode": 200,
