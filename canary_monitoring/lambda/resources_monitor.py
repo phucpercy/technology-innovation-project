@@ -95,9 +95,9 @@ def push_metrics(data, url_resources, namespace):
     )
 
 def measuring_handler(event, context):
-    s3_bucket_name = os.environ("S3_BUCKET_NAME")
-    url_filename = os.environ("URL_FILE_NAME")
-    namespace = os.environ("METRICS_NAMESPACE")
+    s3_bucket_name = os.environ["S3_BUCKET_NAME"]
+    url_filename = os.environ["URL_FILE_NAME"]
+    namespace = os.environ["METRICS_NAMESPACE"]
 
     url_resources = retrieve_url_resources(s3_bucket_name, url_filename)
     urls = []
@@ -114,13 +114,11 @@ def measuring_handler(event, context):
         "body": json.dumps(metric_data)
     }
 
-def test():
-    url_resources = retrieve_url_resources()
+def test(s3_bucket_name, url_filename):
+    url_resources = retrieve_url_resources(s3_bucket_name, url_filename)
     urls = []
     for i in url_resources['urls']:
         urls.append(i['url'])
     metric_data = monitor_pages(urls)
 
     print(metric_data)
-
-test()

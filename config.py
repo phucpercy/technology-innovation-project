@@ -8,6 +8,11 @@ _CONFIGURATION = {
     "MONITOR_INTERVAL_SECONDS" : 60,
     "METRICS_NAMESPACE": "Monitor",
     "DYNAMO_TABLE_NAME": "MonitoringAlarm",
+    "SUBSCRIPTION_EMAIL_LIST": ["phucpercy@gmail.com"],
+}
+
+_TYPE_CAST_FUNCTION_MAP = {
+    list: lambda x: x.split(",")
 }
 
 def _setup():
@@ -15,7 +20,8 @@ def _setup():
 
     for k, t in zip(_CONFIGURATION.keys(), default_types):
         if os.getenv(k) is not None:
-            _CONFIGURATION[k] = t(os.environ[k])
+            cast_func = _TYPE_CAST_FUNCTION_MAP.get(t, t)
+            _CONFIGURATION[k] = cast_func(os.environ[k])
         print(f"{k} = {_CONFIGURATION[k]}")
     globals().update(_CONFIGURATION)
 

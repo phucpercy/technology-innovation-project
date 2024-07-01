@@ -85,7 +85,7 @@ class CanaryMonitoringStack(Stack):
         # Create SNS topic
         sns_alarm_topic = self.create_sns_topic(config.SNS_TOPIC_NAME)
         add_lambda_subscription(sns_alarm_topic, monitoring_alarm_function)
-        email_list = ['phucpercy@gmail.com']
+        email_list = config.SUBSCRIPTION_EMAIL_LIST
         add_email_subscription(sns_alarm_topic, email_list)
         # Sample cdn output to test trigger sns topic
         self.create_test_cfn_output(sns_alarm_topic)
