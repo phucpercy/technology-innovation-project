@@ -9,6 +9,7 @@ _CONFIGURATION = {
     "METRICS_NAMESPACE": "Monitor",
     "DYNAMO_TABLE_NAME": "MonitoringAlarm",
     "SUBSCRIPTION_EMAIL_LIST": ["phucpercy@gmail.com"],
+    "SENDER_EMAIL": "xmanphuc@gmail.com"
 }
 
 _TYPE_CAST_FUNCTION_MAP = {

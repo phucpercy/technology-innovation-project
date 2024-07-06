@@ -13,6 +13,7 @@ from aws_cdk import (
     aws_sns as sns,
     aws_sns_subscriptions as sns_subscriptions,
     aws_events_targets as events_targets,
+    aws_ses as ses,
     Duration, Stack, CfnOutput
 )
 from aws_cdk.aws_cloudwatch import TextWidget, GraphWidget
@@ -85,10 +86,11 @@ class CanaryMonitoringStack(Stack):
         # Create SNS topic
         sns_alarm_topic = self.create_sns_topic(config.SNS_TOPIC_NAME)
         add_lambda_subscription(sns_alarm_topic, monitoring_alarm_function)
-        email_list = config.SUBSCRIPTION_EMAIL_LIST
-        add_email_subscription(sns_alarm_topic, email_list)
+        # email_list = config.SUBSCRIPTION_EMAIL_LIST
+        # add_email_subscription(sns_alarm_topic, email_list)
         # Sample cdn output to test trigger sns topic
         self.create_test_cfn_output(sns_alarm_topic)
+        self.create_ses_stack()
 
         # Custom CloudWatch dashboard
         dashboard = self.create_cloudwatch_dashboard()
@@ -134,6 +136,10 @@ class CanaryMonitoringStack(Stack):
             runtime = _lambda.Runtime.PYTHON_3_11,
             code = _lambda.Code.from_asset("canary_monitoring/lambda"),
             handler = "monitoring_alarm.lambda_handler",
+            environment={
+                # "SUBSCRIPTION_EMAIL_LIST": config.SUBSCRIPTION_EMAIL_LIST,
+                "DYNAMO_TABLE_NAME": config.DYNAMO_TABLE_NAME
+            },
             initial_policy=[
                 iam.PolicyStatement(
                     effect=iam.Effect.ALLOW,
@@ -277,3 +283,20 @@ class CanaryMonitoringStack(Stack):
                 ))
 
         return widgets
+
+    def create_ses_stack(self):
+        sender_email = config.SENDER_EMAIL
+        ses.CfnEmailIdentity(
+            self,
+            'NotificationSenderEmailIdentity',
+            email_identity=sender_email
+        )
+        ses.CfnTemplate(
+            self,
+            'AlarmNotificationEmailTemplate',
+            template=ses.CfnTemplate.TemplateProperty(
+                template_name='AlarmNotificationTemplate',
+                subject_part='CRITICAL Alarm on {{alarm}}',
+                html_part='<h2><span style=\"color: #d13212;\">&#9888</span>Your Amazon CloudWatch alarm was triggered</h2><table style=\"height: 245px; width: 70%; border-collapse: collapse;\" border=\"1\" cellspacing=\"70\" cellpadding=\"5\"><tbody><tr style=\"height: 45px;\"><td style=\"width: 22.6262%; background-color: #f2f3f3; height: 45px;\"><span style=\"color: #16191f;\"><strong>Impact</strong></span></td><td style=\"width: 60.5228%; background-color: #ffffff; height: 45px;\"><strong><span style=\"color: #d13212;\">Critical</span></strong></td></tr><tr style=\"height: 45px;\"><td style=\"width: 22.6262%; height: 45px; background-color: #f2f3f3;\"><span style=\"color: #16191f;\"><strong>Alarm Name</strong></span></td><td style=\"width: 60.5228%; height: 45px;\">{{alarm}}</td></tr><tr style=\"height: 45px;\"><td style=\"width: 22.6262%; height: 45px; background-color: #f2f3f3;\"><span style=\"color: #16191f;\"><strong>Account</strong></span></td><td style=\"width: 60.5228%; height: 45px;\"><p>{{account}} {{region}})</p></td></tr><tr style=\"height: 45px;\"><td style=\"width: 22.6262%; background-color: #f2f3f3; height: 45px;\"><span style=\"color: #16191f;\"><strong>Date-Time</strong></span></td><td style=\"width: 60.5228%; height: 45px;\">{{datetime}}</td></tr><tr style=\"height: 45px;\"><td style=\"width: 22.6262%; height: 45px; background-color: #f2f3f3;\"><span style=\"color: #16191f;\"><strong>Reason</strong></span></td><td style=\"width: 60.5228%; height: 45px;\">Current value <strong> {{value}} </strong> is {{comparisonoperator}} <strong> {{threshold}} </strong> </td></tr></tbody></table>'
+            )
+        )
