@@ -103,6 +103,7 @@ class CanaryMonitoringStack(Stack):
             self,
             "MonitoringFunction",
             runtime = _lambda.Runtime.PYTHON_3_11,
+            timeout=Duration.seconds(10),
             code = _lambda.Code.from_asset("canary_monitoring/lambda"),
             handler = "resources_monitor.measuring_handler",
             environment={
@@ -144,7 +145,8 @@ class CanaryMonitoringStack(Stack):
                 iam.PolicyStatement(
                     effect=iam.Effect.ALLOW,
                     actions=[
-                        'dynamodb:PutItem*'
+                        'dynamodb:PutItem*',
+                        'ses:SendTemplatedEmail'
                     ],
                     resources=['*', ],
                 )
@@ -290,6 +292,11 @@ class CanaryMonitoringStack(Stack):
             self,
             'NotificationSenderEmailIdentity',
             email_identity=sender_email
+        )
+        ses.CfnEmailIdentity(
+            self,
+            'NotificationReceiverEmailIdentity',
+            email_identity='phucpercy@gmail.com'
         )
         ses.CfnTemplate(
             self,

@@ -54,6 +54,7 @@ def send_notification_email(event_message_json):
 
     try:
         response = ses.send_templated_email(
+            Source='xmanphuc@gmail.com',
             Destination={
                 'ToAddresses': email_addresses
             },
@@ -62,8 +63,8 @@ def send_notification_email(event_message_json):
         )
         message_id = response["MessageId"]
         print("Sent templated mail.")
-    except ClientError:
-        print(f'Couldn\'t send templated mail')
+    except ClientError as e:
+        print(f'Couldn\'t send templated mail: {e}')
 
 def lambda_handler(event, context):
     event_message_str = event['Records'][0]['Sns']['Message']
