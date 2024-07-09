@@ -6,6 +6,7 @@ _CONFIGURATION = {
     "URL_FILE_NAME" : "urls.json",
     "SNS_TOPIC_NAME" : "MonitoringAbnormal",
     "MONITOR_INTERVAL_SECONDS" : 60,
+    "MONITOR_LAMBDA_TIMEOUT_SECONDS": 10,
     "METRICS_NAMESPACE": "Monitor",
     "DYNAMO_TABLE_NAME": "MonitoringAlarm",
     "SUBSCRIPTION_EMAIL_LIST": ["phucpercy@gmail.com"],
@@ -13,7 +14,7 @@ _CONFIGURATION = {
 }
 
 _TYPE_CAST_FUNCTION_MAP = {
-    list: lambda x: x.split(",")
+    list: lambda x: [] if len(x) == 0 else x.split(",")
 }
 
 def _setup():
