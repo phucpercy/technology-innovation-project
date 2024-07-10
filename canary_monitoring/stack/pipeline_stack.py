@@ -20,9 +20,9 @@ class CanaryPipelineStack(cdk.Stack):
         ShellStepWithEnvs = partial(ShellStep, env=config.export_env())
         synth_step = ShellStepWithEnvs("Synth",
             input=code_source,
-            commands=["npm install -g aws-cdk",
-                "python -m pip install -r requirements.txt",
-                "cdk synth"]
+            install_commands=["npm install -g aws-cdk",
+                "python -m pip install -r requirements.txt"],
+            commands=["cdk synth"]
         )
         pipeline = CodePipeline(self, "Pipeline",
             pipeline_name="CanaryPipeline",
@@ -32,8 +32,8 @@ class CanaryPipelineStack(cdk.Stack):
         gamma_stage.add_pre(ShellStepWithEnvs(
             "Test",
             input=code_source,
-            install_commands=["python -m pip install -r requirements-dev.txt"],
-            commands=["pytest tests"]
+            install_commands=["python -m pip install -r requirements.txt"],
+            commands=["python -m pytest tests"]
         ))
         gamma_stage.add_post(ManualApprovalStep("Manual approval before production"))
         prod_stage = pipeline.add_stage(PipelineAppStage(self, "Prod"))
