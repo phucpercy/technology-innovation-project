@@ -37,7 +37,7 @@ def send_notification_email(event_message_json):
     state_change_time = state_change_time_full.split(".", 1)[0]
     comparison_operator = event_message_json['Trigger']['ComparisonOperator']
     metric_current_value = new_state_reason[new_state_reason.find("[") + 1:new_state_reason.find("[") + 5]
-    email_addresses = os.environ["SUBSCRIPTION_EMAIL_LIST"]
+    email_addresses = os.environ["SUBSCRIPTION_EMAIL_LIST"].split(",")
 
     template_data = {
         'alarm': alarm_name,

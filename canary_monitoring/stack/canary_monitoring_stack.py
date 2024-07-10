@@ -127,7 +127,7 @@ class CanaryMonitoringStack(Stack):
             code = _lambda.Code.from_asset("canary_monitoring/lambda"),
             handler = "monitoring_alarm.lambda_handler",
             environment={
-                "SUBSCRIPTION_EMAIL_LIST": config.SUBSCRIPTION_EMAIL_LIST,
+                "SUBSCRIPTION_EMAIL_LIST": ",".join(config.SUBSCRIPTION_EMAIL_LIST),
                 "DYNAMO_TABLE_NAME": config.DYNAMO_TABLE_NAME
             },
             initial_policy=[
