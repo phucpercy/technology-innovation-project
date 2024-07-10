@@ -99,24 +99,30 @@ def test_sns_topic(stack_template: Template):
     )
 
 
-def test_sns_topic_email_subscription(stack_template: Template):
+def test_ses_email_identity(stack_template: Template):
     for email in config.SUBSCRIPTION_EMAIL_LIST:
         stack_template.has_resource_properties(
-            "AWS::SNS::Subscription",
+            "AWS::SES::EmailIdentity",
             Match.object_like({
-                "Endpoint": email,
-                "Protocol": "email"
+                "EmailIdentity": email
             })
         )
-    email_subscriptions = stack_template.find_resources(
-        "AWS::SNS::Subscription",
+
+    stack_template.has_resource_properties(
+        "AWS::SES::EmailIdentity",
         Match.object_like({
-            "Properties": {
-                "Protocol": "email"
-            }
+            "EmailIdentity": config.SENDER_EMAIL
         })
     )
-    assert len(email_subscriptions) == len(config.SUBSCRIPTION_EMAIL_LIST)
+
+
+def test_email_template(stack_template: Template):
+    stack_template.has_resource_properties(
+        "AWS::SES::Template",
+        Match.object_like({
+            "Template": Match.any_value()
+        })
+    )
 
 
 def test_sns_topic_lambda_subscription(stack_template: Template):

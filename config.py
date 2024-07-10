@@ -9,12 +9,29 @@ _CONFIGURATION = {
     "METRICS_NAMESPACE": "Monitor",
     "DYNAMO_TABLE_NAME": "MonitoringAlarm",
     "SUBSCRIPTION_EMAIL_LIST": ["phucpercy@gmail.com"],
-    "SENDER_EMAIL": "xmanphuc@gmail.com"
+    "SENDER_EMAIL": "xmanphuc@gmail.com",
+    "REPO_PATH": "phucpercy/technology-innovation-project",
+    "REPO_BRANCH": "main",
+    "REPO_SECRET_KEY_ID": "my-github-token"
 }
 
 _TYPE_CAST_FUNCTION_MAP = {
     list: lambda x: [] if len(x) == 0 else x.split(",")
 }
+
+_TYPE_CAST_BACKWARD_FUNCTION_MAP = {
+    list: lambda x: ",".join(x)
+}
+
+
+def export_env():
+    envs = {}
+    for k, v in _CONFIGURATION.items():
+        cast_func = _TYPE_CAST_BACKWARD_FUNCTION_MAP.get(type(v), str)
+        envs[k] = cast_func(v)
+
+    return envs
+
 
 def _setup():
     default_types = [type(v) for v in _CONFIGURATION.values()]

@@ -1,27 +1,39 @@
+from functools import partial
+
 import aws_cdk as cdk
 from constructs import Construct
 from aws_cdk.pipelines import CodePipeline, CodePipelineSource, ShellStep, ManualApprovalStep
 
 from canary_monitoring.stack.pipeline_app_stage import PipelineAppStage
+import config
 
 
 class CanaryPipelineStack(cdk.Stack):
 
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
+        code_source = CodePipelineSource.git_hub(
+            config.REPO_PATH,
+            config.REPO_BRANCH,
+            authentication=cdk.SecretValue.secrets_manager(config.REPO_SECRET_KEY_ID)
+        )
+        ShellStepWithEnvs = partial(ShellStep, env=config.export_env())
+        synth_step = ShellStepWithEnvs("Synth",
+            input=code_source,
+            commands=["npm install -g aws-cdk",
+                "python -m pip install -r requirements.txt",
+                "cdk synth"]
+        )
         pipeline = CodePipeline(self, "Pipeline",
-                        pipeline_name="CanaryPipeline",
-                        synth=ShellStep("Synth",
-                            input=CodePipelineSource.git_hub(
-                                "phucpercy/technology-innovation-project",
-                                "main",
-                                authentication=cdk.SecretValue.secrets_manager('my-github-token')
-                            ),
-                            commands=["npm install -g aws-cdk",
-                                "python -m pip install -r requirements.txt",
-                                "cdk synth"]
-                        )
-                    )
+            pipeline_name="CanaryPipeline",
+            synth=synth_step
+        )
         gamma_stage = pipeline.add_stage(PipelineAppStage(self, "Gamma"))
+        gamma_stage.add_pre(ShellStepWithEnvs(
+            "Test",
+            input=code_source,
+            install_commands=["python -m pip install -r requirements-dev.txt"],
+            commands=["pytest tests"]
+        ))
         gamma_stage.add_post(ManualApprovalStep("Manual approval before production"))
         prod_stage = pipeline.add_stage(PipelineAppStage(self, "Prod"))
