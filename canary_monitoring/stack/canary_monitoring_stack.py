@@ -103,7 +103,6 @@ class CanaryMonitoringStack(Stack):
             self,
             "MonitoringFunction",
             runtime = _lambda.Runtime.PYTHON_3_11,
-            timeout=Duration.seconds(10),
             code = _lambda.Code.from_asset("canary_monitoring/lambda"),
             handler = "resources_monitor.measuring_handler",
             environment={
@@ -111,6 +110,7 @@ class CanaryMonitoringStack(Stack):
                 "URL_FILE_NAME": config.URL_FILE_NAME,
                 "METRICS_NAMESPACE": config.METRICS_NAMESPACE,
             },
+            timeout=Duration.seconds(config.MONITOR_LAMBDA_TIMEOUT_SECONDS),
             initial_policy=[
                 iam.PolicyStatement(
                     effect=iam.Effect.ALLOW,

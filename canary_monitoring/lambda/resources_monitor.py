@@ -1,5 +1,6 @@
 import json
 import os
+import concurrent.futures
 
 import boto3
 import boto3.exceptions
@@ -48,20 +49,31 @@ def retrieve_url_resources(s3_bucket_name, filename):
     return url_resources
 
 
+def download_page(url):
+    page = WebPage(url)
+    page.download_page()
+    return page
+
+
 def monitor_pages(urls):
     data = {}
 
-    for url in urls:
-        page = WebPage(url)
-        page.download_page()
-        print(
-            f'{url}\tavailability={page.availability}\tsize={format(page.page_size, "_")}\telapsed={page.time_elapsed:0.2f}secs')
-
-        data[page.url] = {
-            'Availability': 1 if page.availability else 0,
-            'Page Size': page.page_size,
-            'Page Time': page.time_elapsed
-        }
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        future_to_url = {executor.submit(download_page, url): url for url in urls}
+        for future in concurrent.futures.as_completed(future_to_url):
+            url = future_to_url[future]
+            try:
+                page = future.result()
+            except Exception as exc:
+                print('%r generated an exception: %s' % (url, exc))
+            else:
+                print(
+                    f'{url}\tavailability={page.availability}\tsize={format(page.page_size, "_")}\telapsed={page.time_elapsed:0.2f}secs')
+                data[page.url] = {
+                    'Availability': 1 if page.availability else 0,
+                    'Page Size': page.page_size,
+                    'Page Time': page.time_elapsed
+                }
 
     return data
 
