@@ -1,6 +1,5 @@
 import os
 
-
 _CONFIGURATION = {
     "S3_BUCKET_NAME" : "tip-monitoring-url-resources",
     "URL_FILE_NAME" : "urls.json",

@@ -26,12 +26,6 @@ def add_lambda_subscription(topic: sns.Topic, function):
     lambda_subscription = sns_subscriptions.LambdaSubscription(function)
     topic.add_subscription(lambda_subscription)
 
-def add_email_subscription(topic: sns.Topic, email_list):
-    for email in email_list:
-        email_subscription = sns_subscriptions.EmailSubscription(email_address=email)
-        topic.add_subscription(email_subscription)
-
-
 def parse_threshold_expression(express: str):
     if len(express) == 0:
         return []
@@ -74,9 +68,6 @@ class CanaryMonitoringStack(Stack):
             Duration.seconds(config.MONITOR_INTERVAL_SECONDS)
         )
 
-        # Define the API Gateway resource
-        self.create_test_api(resources_monitor_function)
-
         # S3 bucket
         self.create_s3_bucket(config.S3_BUCKET_NAME)
 
@@ -86,10 +77,8 @@ class CanaryMonitoringStack(Stack):
         # Create SNS topic
         sns_alarm_topic = self.create_sns_topic(config.SNS_TOPIC_NAME)
         add_lambda_subscription(sns_alarm_topic, monitoring_alarm_function)
-        # email_list = config.SUBSCRIPTION_EMAIL_LIST
-        # add_email_subscription(sns_alarm_topic, email_list)
-        # Sample cdn output to test trigger sns topic
-        self.create_test_cfn_output(sns_alarm_topic)
+
+        # Create SES stack
         self.create_ses_stack()
 
         # Custom CloudWatch dashboard
@@ -138,7 +127,7 @@ class CanaryMonitoringStack(Stack):
             code = _lambda.Code.from_asset("canary_monitoring/lambda"),
             handler = "monitoring_alarm.lambda_handler",
             environment={
-                # "SUBSCRIPTION_EMAIL_LIST": config.SUBSCRIPTION_EMAIL_LIST,
+                "SUBSCRIPTION_EMAIL_LIST": config.SUBSCRIPTION_EMAIL_LIST,
                 "DYNAMO_TABLE_NAME": config.DYNAMO_TABLE_NAME
             },
             initial_policy=[
@@ -168,21 +157,6 @@ class CanaryMonitoringStack(Stack):
         return monitoring_scheduled_rule
 
 
-    def create_test_api(self, function):
-        api = apigateway.LambdaRestApi(
-            self,
-            "Test Measuring Api",
-            handler=function,
-            proxy=False,
-        )
-
-        # Define the resource with a GET method
-        test_handler = api.root.add_resource("monitor")
-        test_handler.add_method("GET")
-
-        return api
-
-    
     def create_s3_bucket(self, name):
         bucket = s3.Bucket(
             self,
@@ -224,16 +198,6 @@ class CanaryMonitoringStack(Stack):
 
         return sns_alarm_topic
     
-
-    def create_test_cfn_output(self, topic: sns.Topic):
-        CfnOutput(
-            self,
-            'snsTopicARN',
-            value=topic.topic_arn,
-            description='The SNS notification-topic ARN for test'
-        )
-    
-
     def create_cloudwatch_dashboard(self):
         dashboard = cw.Dashboard(self, "Web Monitor Dashboard")
         dashboard.add_widgets(
@@ -293,11 +257,12 @@ class CanaryMonitoringStack(Stack):
             'NotificationSenderEmailIdentity',
             email_identity=sender_email
         )
-        ses.CfnEmailIdentity(
-            self,
-            'NotificationReceiverEmailIdentity',
-            email_identity='phucpercy@gmail.com'
-        )
+        for email in config.SUBSCRIPTION_EMAIL_LIST:
+            ses.CfnEmailIdentity(
+                self,
+                'NotificationReceiverEmailIdentity',
+                email_identity=email
+            )
         ses.CfnTemplate(
             self,
             'AlarmNotificationEmailTemplate',
