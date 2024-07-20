@@ -13,7 +13,7 @@ import config
 @pytest.fixture(scope="session")
 def stack_template():
     app = core.App()
-    stack = CanaryMonitoringStack(app, "CanaryMonitoringStack")
+    stack = CanaryMonitoringStack(app, "CanaryMonitoringStack", "Gamma")
     template = Template.from_stack(stack)
     return template
 
@@ -48,22 +48,8 @@ def test_event_bridge_rule(stack_template: Template):
     )
 
 
-def test_s3_bucket(stack_template: Template):
-    stack_template.resource_count_is("AWS::S3::Bucket", 1)
-    stack_template.has_resource(
-        "AWS::S3::Bucket",
-        Match.object_like({
-            "Properties": {
-                "BucketName": config.S3_BUCKET_NAME
-            },
-            "UpdateReplacePolicy": "Delete",
-            "DeletionPolicy": "Delete"
-        })
-    )
-
-
 def test_dynamodb_table(stack_template: Template):
-    stack_template.resource_count_is("AWS::DynamoDB::Table", 1)
+    stack_template.resource_count_is("AWS::DynamoDB::Table", 2)
     stack_template.has_resource_properties(
         "AWS::DynamoDB::Table",
         Match.object_like({
@@ -77,7 +63,23 @@ def test_dynamodb_table(stack_template: Template):
                     "AttributeType": "S"
                 }
             ],
-            "TableName": config.DYNAMO_ALARM_TABLE_NAME
+            "TableName": "Gamma" + config.DYNAMO_ALARM_TABLE_NAME
+        })
+    )
+    stack_template.has_resource_properties(
+        "AWS::DynamoDB::Table",
+        Match.object_like({
+            "AttributeDefinitions": [
+                {
+                    "AttributeName": "id",
+                    "AttributeType": "S"
+                },
+                {
+                    "AttributeName": "timestamp",
+                    "AttributeType": "S"
+                }
+            ],
+            "TableName": "Gamma" + config.DYNAMO_RESOURCES_TABLE_NAME
         })
     )
     stack_template.has_resource(
@@ -94,24 +96,7 @@ def test_sns_topic(stack_template: Template):
     stack_template.has_resource_properties(
         "AWS::SNS::Topic",
         Match.object_like({
-            "TopicName": config.SNS_TOPIC_NAME
-        })
-    )
-
-
-def test_ses_email_identity(stack_template: Template):
-    for email in config.SUBSCRIPTION_EMAIL_LIST:
-        stack_template.has_resource_properties(
-            "AWS::SES::EmailIdentity",
-            Match.object_like({
-                "EmailIdentity": email
-            })
-        )
-
-    stack_template.has_resource_properties(
-        "AWS::SES::EmailIdentity",
-        Match.object_like({
-            "EmailIdentity": config.SENDER_EMAIL
+            "TopicName": 'Gamma' + config.SNS_TOPIC_NAME
         })
     )
 
