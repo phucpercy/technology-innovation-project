@@ -61,6 +61,8 @@ class CanaryMonitoringStack(Stack):
         # Define the Lambda function resource
         resources_monitor_function = self.create_lambda_resources_monitor()
         monitoring_alarm_function = self.create_lambda_monitoring_alarm(stage_name)
+        resources_management_function = self.create_lambda_resources_management(stage_name)
+        self.create_resources_management_gateway(resources_management_function)
 
         # Define Event Bridge Rule
         self.create_event_bridge_rule(
@@ -87,6 +89,30 @@ class CanaryMonitoringStack(Stack):
         widgets = self.create_metric_widgets(sns_alarm_topic)
         dashboard.add_widgets(*widgets)
 
+
+    def create_lambda_resources_management(self, stage_name):
+        resources_management = _lambda.Function(
+            self,
+            "ResourcesManagementFunction",
+            runtime = _lambda.Runtime.PYTHON_3_11,
+            code = _lambda.Code.from_asset("canary_monitoring/lambda"),
+            handler = "resources_management.lambda_handler",
+            environment={
+                "DYNAMO_RESOURCES_TABLE_NAME": stage_name + config.DYNAMO_RESOURCES_TABLE_NAME,
+            },
+            timeout=Duration.seconds(config.MONITOR_LAMBDA_TIMEOUT_SECONDS),
+            initial_policy=[
+                iam.PolicyStatement(
+                    effect=iam.Effect.ALLOW,
+                    actions=[
+                        'dynamodb:PutItem*',
+                    ],
+                    resources=['*',],
+                )
+            ]
+        )
+
+        return resources_management
 
     def create_lambda_resources_monitor(self):
         monitoring_function = _lambda.Function(
@@ -156,18 +182,6 @@ class CanaryMonitoringStack(Stack):
         )
 
         return monitoring_scheduled_rule
-
-
-    def create_s3_bucket(self, name, stage_name):
-        bucket = s3.Bucket(
-            self,
-            id="canary_urls",
-            bucket_name=name,
-            removal_policy=RemovalPolicy.DESTROY,
-            auto_delete_objects=True
-        )
-
-        return bucket
 
 
     def create_dynamo_database(self, alarm_table_name, resources_table_name, stage_name):
@@ -274,3 +288,18 @@ class CanaryMonitoringStack(Stack):
                 html_part=f'<h2>Your {stage_name} Amazon CloudWatch alarm was triggered</h2><table style=\"height: 245px; width: 70%; border-collapse: collapse;\" border=\"1\" cellspacing=\"70\" cellpadding=\"5\"><tbody><tr style=\"height: 45px;\"><td style=\"width: 22.6262%; background-color: #f2f3f3; height: 45px;\"><span style=\"color: #16191f;\"><strong>Impact</strong></span></td><td style=\"width: 60.5228%; background-color: #ffffff; height: 45px;\"><strong><span style=\"color: #d13212;\">Critical</span></strong></td></tr><tr style=\"height: 45px;\"><td style=\"width: 22.6262%; height: 45px; background-color: #f2f3f3;\"><span style=\"color: #16191f;\"><strong>Alarm Name</strong></span></td><td style=\"width: 60.5228%; height: 45px;\">{{alarm}}</td></tr><tr style=\"height: 45px;\"><td style=\"width: 22.6262%; height: 45px; background-color: #f2f3f3;\"><span style=\"color: #16191f;\"><strong>Account</strong></span></td><td style=\"width: 60.5228%; height: 45px;\"><p>{{account}} {{region}})</p></td></tr><tr style=\"height: 45px;\"><td style=\"width: 22.6262%; background-color: #f2f3f3; height: 45px;\"><span style=\"color: #16191f;\"><strong>Date-Time</strong></span></td><td style=\"width: 60.5228%; height: 45px;\">{{datetime}}</td></tr><tr style=\"height: 45px;\"><td style=\"width: 22.6262%; height: 45px; background-color: #f2f3f3;\"><span style=\"color: #16191f;\"><strong>Reason</strong></span></td><td style=\"width: 60.5228%; height: 45px;\">Current value <strong> {{value}} </strong> is {{comparisonoperator}} <strong> {{threshold}} </strong> </td></tr></tbody></table>'
             )
         )
+
+    def create_resources_management_gateway(self, resources_management_function):
+        api = apigateway.LambdaRestApi(
+            self,
+            "ResourcesManagementApi",
+            handler=resources_management_function,
+            proxy=False,
+        )
+
+        resources_routes = api.root.add_resource("resources")
+        resources_routes.add_method("GET")
+        resources_routes.add_method("PUT")
+        # id_resource_routes = api.root.add_resource("resources/{id}")
+        # id_resource_routes.add_method("DELETE")
+        # id_resource_routes.add_method("GET")
