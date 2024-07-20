@@ -10,7 +10,7 @@ def save_alarm_message(event_message_json):
     dynamodb_client = boto3.resource("dynamodb")
     event_message_trigger = event_message_json['Trigger']
     event_state_reason = event_message_json['NewStateReason']
-    dynamodb_table_name = os.environ["DYNAMO_TABLE_NAME"]
+    dynamodb_table_name = os.environ["DYNAMO_ALARM_TABLE_NAME"]
     item = {
         'id': str(uuid.uuid4()),
         'timestamp': event_message_json['AlarmConfigurationUpdatedTimestamp'],

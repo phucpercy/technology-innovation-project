@@ -77,7 +77,7 @@ def test_dynamodb_table(stack_template: Template):
                     "AttributeType": "S"
                 }
             ],
-            "TableName": config.DYNAMO_TABLE_NAME
+            "TableName": config.DYNAMO_ALARM_TABLE_NAME
         })
     )
     stack_template.has_resource(

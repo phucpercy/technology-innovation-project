@@ -55,31 +55,32 @@ def parse_threshold_expression(express: str):
 
 class CanaryMonitoringStack(Stack):
 
-    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, stage_name: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # Define the Lambda function resource
         resources_monitor_function = self.create_lambda_resources_monitor()
-        monitoring_alarm_function = self.create_lambda_monitoring_alarm()
+        monitoring_alarm_function = self.create_lambda_monitoring_alarm(stage_name)
 
         # Define Event Bridge Rule
         self.create_event_bridge_rule(
             resources_monitor_function,
-            Duration.seconds(config.MONITOR_INTERVAL_SECONDS)
+            Duration.seconds(config.MONITOR_INTERVAL_SECONDS),
+            stage_name
         )
 
         # S3 bucket
-        self.create_s3_bucket(config.S3_BUCKET_NAME)
+        # self.create_s3_bucket(config.S3_BUCKET_NAME)
 
         # Create DynamoDB
-        self.create_dynamo_database(config.DYNAMO_TABLE_NAME)
+        self.create_dynamo_database(config.DYNAMO_ALARM_TABLE_NAME, config.DYNAMO_RESOURCES_TABLE_NAME, stage_name)
 
         # Create SNS topic
-        sns_alarm_topic = self.create_sns_topic(config.SNS_TOPIC_NAME)
+        sns_alarm_topic = self.create_sns_topic(config.SNS_TOPIC_NAME, stage_name)
         add_lambda_subscription(sns_alarm_topic, monitoring_alarm_function)
 
         # Create SES stack
-        self.create_ses_stack()
+        self.create_ses_stack(stage_name)
 
         # Custom CloudWatch dashboard
         dashboard = self.create_cloudwatch_dashboard()
@@ -119,7 +120,7 @@ class CanaryMonitoringStack(Stack):
         return monitoring_function
 
 
-    def create_lambda_monitoring_alarm(self):
+    def create_lambda_monitoring_alarm(self, stage_name):
         monitoring_alarm_function = _lambda.Function(
             self,
             "MonitoringAlarmFunction",
@@ -128,7 +129,7 @@ class CanaryMonitoringStack(Stack):
             handler = "monitoring_alarm.lambda_handler",
             environment={
                 "SUBSCRIPTION_EMAIL_LIST": ",".join(config.SUBSCRIPTION_EMAIL_LIST),
-                "DYNAMO_TABLE_NAME": config.DYNAMO_TABLE_NAME
+                "DYNAMO_ALARM_TABLE_NAME": stage_name + config.DYNAMO_ALARM_TABLE_NAME
             },
             initial_policy=[
                 iam.PolicyStatement(
@@ -145,10 +146,10 @@ class CanaryMonitoringStack(Stack):
         return monitoring_alarm_function
 
 
-    def create_event_bridge_rule(self, function, duration):
+    def create_event_bridge_rule(self, function, duration, stage_name):
         monitoring_scheduled_rule = events.Rule(
             self,
-            f'EventBridgeRule',
+            f'{stage_name}EventBridgeRule',
             schedule=events.Schedule.rate(duration),
             targets=[events_targets.LambdaFunction(handler=function,)],
             rule_name=f'MonitoringSchedule',
@@ -157,7 +158,7 @@ class CanaryMonitoringStack(Stack):
         return monitoring_scheduled_rule
 
 
-    def create_s3_bucket(self, name):
+    def create_s3_bucket(self, name, stage_name):
         bucket = s3.Bucket(
             self,
             id="canary_urls",
@@ -169,9 +170,9 @@ class CanaryMonitoringStack(Stack):
         return bucket
 
 
-    def create_dynamo_database(self, table_name):
-        table = dynamodb.Table(
-            self, "MonitoringAlarmDB",
+    def create_dynamo_database(self, alarm_table_name, resources_table_name, stage_name):
+        dynamodb.Table(
+            self, f'{stage_name}MonitoringAlarmDB',
             partition_key=dynamodb.Attribute(
                 name="id",
                 type=dynamodb.AttributeType.STRING
@@ -180,20 +181,33 @@ class CanaryMonitoringStack(Stack):
                 name="timestamp",
                 type=dynamodb.AttributeType.STRING
             ),
-            table_name=table_name,
+            table_name=stage_name + alarm_table_name,
+            read_capacity=5,
+            write_capacity=5,
+            removal_policy=RemovalPolicy.DESTROY
+        )
+        dynamodb.Table(
+            self, f'{stage_name}MonitoringResourcesDB',
+            partition_key=dynamodb.Attribute(
+                name="id",
+                type=dynamodb.AttributeType.STRING
+            ),
+            sort_key=dynamodb.Attribute(
+                name="timestamp",
+                type=dynamodb.AttributeType.STRING
+            ),
+            table_name=stage_name + resources_table_name,
             read_capacity=5,
             write_capacity=5,
             removal_policy=RemovalPolicy.DESTROY
         )
 
-        return table
     
-    
-    def create_sns_topic(self, topic_name):
+    def create_sns_topic(self, topic_name, stage_name):
         sns_alarm_topic = sns.Topic(
             self,
-            "SNSMonitoringAlarm",
-            topic_name=topic_name
+            f'{stage_name}SNSMonitoringAlarm',
+            topic_name=stage_name + topic_name
         )
 
         return sns_alarm_topic
@@ -250,25 +264,13 @@ class CanaryMonitoringStack(Stack):
 
         return widgets
 
-    def create_ses_stack(self):
-        sender_email = config.SENDER_EMAIL
-        ses.CfnEmailIdentity(
-            self,
-            'NotificationSenderEmailIdentity',
-            email_identity=sender_email
-        )
-        for email in config.SUBSCRIPTION_EMAIL_LIST:
-            ses.CfnEmailIdentity(
-                self,
-                'NotificationReceiverEmailIdentity',
-                email_identity=email
-            )
+    def create_ses_stack(self, stage_name):
         ses.CfnTemplate(
             self,
-            'AlarmNotificationEmailTemplate',
+            f'{stage_name}AlarmNotificationEmailTemplate',
             template=ses.CfnTemplate.TemplateProperty(
-                template_name='AlarmNotificationTemplate',
+                template_name=f'{stage_name}AlarmNotificationTemplate',
                 subject_part='CRITICAL Alarm on {{alarm}}',
-                html_part='<h2><span style=\"color: #d13212;\">&#9888</span>Your Amazon CloudWatch alarm was triggered</h2><table style=\"height: 245px; width: 70%; border-collapse: collapse;\" border=\"1\" cellspacing=\"70\" cellpadding=\"5\"><tbody><tr style=\"height: 45px;\"><td style=\"width: 22.6262%; background-color: #f2f3f3; height: 45px;\"><span style=\"color: #16191f;\"><strong>Impact</strong></span></td><td style=\"width: 60.5228%; background-color: #ffffff; height: 45px;\"><strong><span style=\"color: #d13212;\">Critical</span></strong></td></tr><tr style=\"height: 45px;\"><td style=\"width: 22.6262%; height: 45px; background-color: #f2f3f3;\"><span style=\"color: #16191f;\"><strong>Alarm Name</strong></span></td><td style=\"width: 60.5228%; height: 45px;\">{{alarm}}</td></tr><tr style=\"height: 45px;\"><td style=\"width: 22.6262%; height: 45px; background-color: #f2f3f3;\"><span style=\"color: #16191f;\"><strong>Account</strong></span></td><td style=\"width: 60.5228%; height: 45px;\"><p>{{account}} {{region}})</p></td></tr><tr style=\"height: 45px;\"><td style=\"width: 22.6262%; background-color: #f2f3f3; height: 45px;\"><span style=\"color: #16191f;\"><strong>Date-Time</strong></span></td><td style=\"width: 60.5228%; height: 45px;\">{{datetime}}</td></tr><tr style=\"height: 45px;\"><td style=\"width: 22.6262%; height: 45px; background-color: #f2f3f3;\"><span style=\"color: #16191f;\"><strong>Reason</strong></span></td><td style=\"width: 60.5228%; height: 45px;\">Current value <strong> {{value}} </strong> is {{comparisonoperator}} <strong> {{threshold}} </strong> </td></tr></tbody></table>'
+                html_part=f'<h2>Your {stage_name} Amazon CloudWatch alarm was triggered</h2><table style=\"height: 245px; width: 70%; border-collapse: collapse;\" border=\"1\" cellspacing=\"70\" cellpadding=\"5\"><tbody><tr style=\"height: 45px;\"><td style=\"width: 22.6262%; background-color: #f2f3f3; height: 45px;\"><span style=\"color: #16191f;\"><strong>Impact</strong></span></td><td style=\"width: 60.5228%; background-color: #ffffff; height: 45px;\"><strong><span style=\"color: #d13212;\">Critical</span></strong></td></tr><tr style=\"height: 45px;\"><td style=\"width: 22.6262%; height: 45px; background-color: #f2f3f3;\"><span style=\"color: #16191f;\"><strong>Alarm Name</strong></span></td><td style=\"width: 60.5228%; height: 45px;\">{{alarm}}</td></tr><tr style=\"height: 45px;\"><td style=\"width: 22.6262%; height: 45px; background-color: #f2f3f3;\"><span style=\"color: #16191f;\"><strong>Account</strong></span></td><td style=\"width: 60.5228%; height: 45px;\"><p>{{account}} {{region}})</p></td></tr><tr style=\"height: 45px;\"><td style=\"width: 22.6262%; background-color: #f2f3f3; height: 45px;\"><span style=\"color: #16191f;\"><strong>Date-Time</strong></span></td><td style=\"width: 60.5228%; height: 45px;\">{{datetime}}</td></tr><tr style=\"height: 45px;\"><td style=\"width: 22.6262%; height: 45px; background-color: #f2f3f3;\"><span style=\"color: #16191f;\"><strong>Reason</strong></span></td><td style=\"width: 60.5228%; height: 45px;\">Current value <strong> {{value}} </strong> is {{comparisonoperator}} <strong> {{threshold}} </strong> </td></tr></tbody></table>'
             )
         )

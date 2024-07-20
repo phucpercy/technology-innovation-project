@@ -3,8 +3,8 @@ import os
 
 import aws_cdk as cdk
 
-from canary_monitoring.stack.canary_monitoring_stack import CanaryMonitoringStack
 from canary_monitoring.stack.pipeline_stack import CanaryPipelineStack
+from canary_monitoring.stack.stage_shared_stack import CanarySharedStack
 
 app = cdk.App()
 CanaryPipelineStack(app, "CanaryPipelineStack",
@@ -24,5 +24,7 @@ CanaryPipelineStack(app, "CanaryPipelineStack",
 
     # For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html
     )
+
+CanarySharedStack(app, "CanarySharedStack")
 
 app.synth()

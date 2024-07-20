@@ -6,4 +6,4 @@ class PipelineAppStage(cdk.Stage):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        CanaryMonitoringStack(self, "CanaryMonitoringStack")
+        CanaryMonitoringStack(self, "CanaryMonitoringStack", construct_id)
