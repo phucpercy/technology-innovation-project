@@ -4,7 +4,6 @@ import uuid
 
 import boto3
 import os
-from decimal import Decimal
 
 dynamodb_table_name = os.environ["DYNAMO_RESOURCES_TABLE_NAME"]
 client = boto3.client('dynamodb')
@@ -39,13 +38,13 @@ def lambda_handler(event, context):
             requestJSON = json.loads(event['body'])
             item = {
                     'id': str(uuid.uuid4()),
-                    'timestamp': datetime.datetime.now(),
+                    'timestamp': datetime.datetime.now().isoformat(),
                     'urls': requestJSON['urls']
                 }
             table.put_item(
                 Item=item
             )
-            body = 'Put item ' + item
+            body = item
     except KeyError:
         statusCode = 400
         body = 'Unsupported route: ' + event['routeKey']

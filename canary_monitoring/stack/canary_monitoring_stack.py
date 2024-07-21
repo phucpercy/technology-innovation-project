@@ -5,7 +5,8 @@ from aws_cdk import (
     aws_cloudwatch as cw,
     aws_cloudwatch_actions as actions,
     aws_lambda as _lambda,
-    aws_apigateway as apigateway,
+    aws_apigatewayv2 as apigateway,
+    aws_apigatewayv2_integrations as integrations,
     aws_s3 as s3, RemovalPolicy,
     aws_iam as iam,
     aws_events as events,
@@ -16,6 +17,7 @@ from aws_cdk import (
     aws_ses as ses,
     Duration, Stack, CfnOutput
 )
+from aws_cdk.aws_apigatewayv2 import HttpMethod
 from aws_cdk.aws_cloudwatch import TextWidget, GraphWidget
 from constructs import Construct
 
@@ -105,7 +107,7 @@ class CanaryMonitoringStack(Stack):
                 iam.PolicyStatement(
                     effect=iam.Effect.ALLOW,
                     actions=[
-                        'dynamodb:PutItem*',
+                        'dynamodb:*',
                     ],
                     resources=['*',],
                 )
@@ -206,10 +208,6 @@ class CanaryMonitoringStack(Stack):
                 name="id",
                 type=dynamodb.AttributeType.STRING
             ),
-            sort_key=dynamodb.Attribute(
-                name="timestamp",
-                type=dynamodb.AttributeType.STRING
-            ),
             table_name=stage_name + resources_table_name,
             read_capacity=5,
             write_capacity=5,
@@ -290,16 +288,24 @@ class CanaryMonitoringStack(Stack):
         )
 
     def create_resources_management_gateway(self, resources_management_function):
-        api = apigateway.LambdaRestApi(
+        api = apigateway.HttpApi(
             self,
             "ResourcesManagementApi",
-            handler=resources_management_function,
-            proxy=False,
+            api_name="ResourcesManagementApi"
         )
-
-        resources_routes = api.root.add_resource("resources")
-        resources_routes.add_method("GET")
-        resources_routes.add_method("PUT")
-        # id_resource_routes = api.root.add_resource("resources/{id}")
-        # id_resource_routes.add_method("DELETE")
-        # id_resource_routes.add_method("GET")
+        api.add_routes(
+            path='/resources',
+            methods=[HttpMethod.GET, HttpMethod.PUT],
+            integration=integrations.HttpLambdaIntegration(
+                "ResourcesManagementLambda",
+                handler=resources_management_function
+            )
+        )
+        api.add_routes(
+            path='/resources/{id}',
+            methods=[HttpMethod.GET, HttpMethod.DELETE],
+            integration=integrations.HttpLambdaIntegration(
+                "ResourcesManagementLambda",
+                handler=resources_management_function
+            )
+        )
