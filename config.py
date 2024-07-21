@@ -9,6 +9,7 @@ _CONFIGURATION = {
     "METRICS_NAMESPACE": "Monitor",
     "DYNAMO_ALARM_TABLE_NAME": "MonitoringAlarm",
     "DYNAMO_RESOURCES_TABLE_NAME": "MonitoringResources",
+    "CLOUDWATCH_DASHBOARD_NAME": "WebMonitorDashboard",
     "SUBSCRIPTION_EMAIL_LIST": ["phucpercy@gmail.com"],
     "SENDER_EMAIL": "xmanphuc@gmail.com",
     "REPO_PATH": "phucpercy/technology-innovation-project",
