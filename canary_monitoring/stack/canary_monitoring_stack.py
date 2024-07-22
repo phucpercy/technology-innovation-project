@@ -208,6 +208,10 @@ class CanaryMonitoringStack(Stack):
                 name="id",
                 type=dynamodb.AttributeType.STRING
             ),
+            sort_key=dynamodb.Attribute(
+                name='timestamp',
+                type=dynamodb.AttributeType.STRING
+            ),
             table_name=stage_name + resources_table_name,
             read_capacity=5,
             write_capacity=5,
