@@ -1,4 +1,5 @@
 import datetime
+import time
 import json
 import uuid
 
@@ -51,6 +52,7 @@ def lambda_handler(event, context):
             item = {
                     'id': str(uuid.uuid4()),
                     'timestamp': datetime.datetime.now().isoformat(),
+                    'reversed_ts': str(5e9 - time.time()),
                     'urls': requestJSON['urls']
                 }
             table.put_item(

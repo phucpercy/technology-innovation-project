@@ -38,6 +38,7 @@ def send_notification_email(event_message_json):
     comparison_operator = event_message_json['Trigger']['ComparisonOperator']
     metric_current_value = new_state_reason[new_state_reason.find("[") + 1:new_state_reason.find("[") + 5]
     email_addresses = os.environ["SUBSCRIPTION_EMAIL_LIST"].split(",")
+    template_name = os.environ["EMAIL_TEMPLATE_NAME"]
 
     template_data = {
         'alarm': alarm_name,
@@ -53,15 +54,15 @@ def send_notification_email(event_message_json):
 
     try:
         response = ses.send_templated_email(
-            Source='xmanphuc@gmail.com',
+            Source=os.environ["SENDER_EMAIL"],
             Destination={
                 'ToAddresses': email_addresses
             },
-            Template='AlarmNotificationTemplate',
+            Template=template_name,
             TemplateData=json.dumps(template_data)
         )
         message_id = response["MessageId"]
-        print("Sent templated mail.")
+        print(f"Sent templated mail (id={message_id})")
     except ClientError as e:
         print(f'Couldn\'t send templated mail: {e}')
 

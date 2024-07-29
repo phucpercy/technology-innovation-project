@@ -22,6 +22,10 @@ class WebPage:
                 end_time = perf_counter()
                 self._load_time_secs = end_time - start_time
                 self._page_size = len(self._page)
+            else:
+                print(f'status code for {self._url}: {response.status}')
+                self._page_size = -1
+                self._load_time_secs = -1
         except Exception as err:
             print(err)
 

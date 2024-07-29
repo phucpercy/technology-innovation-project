@@ -76,18 +76,21 @@ def parse_threshold_expression(express: str):
     return thresholds
 
 
-def retrieve_url_resources(s3_bucket_name, filename):
-    s3_client = boto3.client('s3')
+def retrieve_url_resources(table_name):
+    dynamodb = boto3.resource("dynamodb")
+    table = dynamodb.Table(table_name)
+    result = table.scan(
+        Select='SPECIFIC_ATTRIBUTES',
+        ProjectionExpression='urls',
+        Limit=1
+    )
+    print('scan table: ', result)
 
-    try:
-        response = s3_client.get_object(Bucket=s3_bucket_name, Key=filename)
-    except s3_client.exceptions.NoSuchKey:
+    count = result['Count']
+    if count == 0:
         return json.loads(STUB_JSON)
 
-    object_content = response['Body'].read().decode('utf-8')
-    url_resources = json.loads(object_content)
-
-    return url_resources
+    return result['Items'][0]
 
 
 def download_page(url):
@@ -194,10 +197,10 @@ def push_dashboard(dashboard_name, url_resources, namespace, period):
     )
 
 
-def get_existing_alarm_names(namespace):
+def get_existing_alarm_names(alarm_prefix):
     cloudwatch = boto3.client('cloudwatch')
     response = cloudwatch.describe_alarms(
-        AlarmNamePrefix=f'{namespace}-Alarm-'
+        AlarmNamePrefix=alarm_prefix
     )
     alarm_names = {alarm['AlarmName'] for alarm in response['MetricAlarms']}
     return alarm_names
@@ -210,7 +213,7 @@ def remove_alarms(existing_alarm_names, new_alarm_names):
         cloudwatch.delete_alarms(AlarmNames=alarm_names)
 
 
-def push_alarms(url_resources, namespace, topic_arn, period, existing_alarm_names):
+def push_alarms(url_resources, namespace, alarm_prefix, topic_arn, period, existing_alarm_names):
     cloudwatch = boto3.client('cloudwatch')
     new_alarm_names = set()
     for url_conf in url_resources['urls']:
@@ -220,9 +223,9 @@ def push_alarms(url_resources, namespace, topic_arn, period, existing_alarm_name
             threshold_exp = metric_conf['threshold']
             thresholds = parse_threshold_expression(threshold_exp)
             for exp, op, threshold in thresholds:
-                hashdata = f'{namespace}{metric_type}{url}{exp}'
+                hashdata = f'{alarm_prefix}{metric_type}{url}{exp}'
                 hashtag = hashlib.shake_128(hashdata.encode()).hexdigest(5)
-                alarm_name = f'{namespace}-Alarm-{metric_type}-{url}-{hashtag}'
+                alarm_name = f'{alarm_prefix}{metric_type}-{url}-{hashtag}'
                 new_alarm_names.add(alarm_name)
                 if alarm_name in existing_alarm_names:
                     continue
@@ -278,23 +281,23 @@ def push_metrics(data, url_resources, namespace):
 
 def measuring_handler(event, context):
     # get environment variables
-    s3_bucket_name = os.environ["S3_BUCKET_NAME"]
-    url_filename = os.environ["URL_FILE_NAME"]
+    alarm_prefix = os.environ["ALARM_PREFIX"]
+    dynamodb_table_name = os.environ["DYNAMO_RESOURCES_TABLE_NAME"]
     namespace = os.environ["METRICS_NAMESPACE"]
     dashboard_name = os.environ["CLOUDWATCH_DASHBOARD_NAME"]
     period = int(os.environ["MONITOR_INTERVAL_SECONDS"])
     topic_arn = os.environ["TOPIC_ARN"]
 
     # collect metrics data
-    url_resources = retrieve_url_resources(s3_bucket_name, url_filename)
+    url_resources = retrieve_url_resources(dynamodb_table_name)
     urls = []
     for i in url_resources['urls']:
         urls.append(i['url'])
     metric_data = monitor_pages(urls)
 
     # update dashboard and alarms
-    existing_alarm_names = get_existing_alarm_names(namespace)
-    new_alarm_names = push_alarms(url_resources, namespace, topic_arn, period, existing_alarm_names)
+    existing_alarm_names = get_existing_alarm_names(alarm_prefix)
+    new_alarm_names = push_alarms(url_resources, namespace, alarm_prefix, topic_arn, period, existing_alarm_names)
     remove_alarms(existing_alarm_names, new_alarm_names)
     is_update = existing_alarm_names != new_alarm_names
     if is_update:
@@ -310,8 +313,8 @@ def measuring_handler(event, context):
         "body": json.dumps(metric_data)
     }
 
-def test(s3_bucket_name, url_filename):
-    url_resources = retrieve_url_resources(s3_bucket_name, url_filename)
+def test(dynamodb_table_name):
+    url_resources = retrieve_url_resources(dynamodb_table_name)
     urls = []
     for i in url_resources['urls']:
         urls.append(i['url'])

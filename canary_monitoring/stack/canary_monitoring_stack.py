@@ -30,10 +30,10 @@ class CanaryMonitoringStack(Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         # Create SNS topic
-        sns_alarm_topic = self.create_sns_topic(config.SNS_TOPIC_NAME)
+        sns_alarm_topic = self.create_sns_topic(config.SNS_TOPIC_NAME, stage_name)
 
         # Define the Lambda function resource
-        resources_monitor_function = self.create_lambda_resources_monitor(sns_alarm_topic)
+        resources_monitor_function = self.create_lambda_resources_monitor(sns_alarm_topic, stage_name)
         monitoring_alarm_function = self.create_lambda_monitoring_alarm(stage_name)
         add_lambda_subscription(sns_alarm_topic, monitoring_alarm_function)
         resources_management_function = self.create_lambda_resources_management(stage_name)
@@ -45,9 +45,6 @@ class CanaryMonitoringStack(Stack):
             Duration.seconds(config.MONITOR_INTERVAL_SECONDS),
             stage_name
         )
-
-        # S3 bucket
-        # self.create_s3_bucket(config.S3_BUCKET_NAME)
 
         # Create DynamoDB
         self.create_dynamo_database(config.DYNAMO_ALARM_TABLE_NAME, config.DYNAMO_RESOURCES_TABLE_NAME, stage_name)
@@ -84,7 +81,7 @@ class CanaryMonitoringStack(Stack):
         return resources_management
 
 
-    def create_lambda_resources_monitor(self, topic: sns.Topic):
+    def create_lambda_resources_monitor(self, topic: sns.Topic, stage_name):
         monitoring_function = _lambda.Function(
             self,
             "MonitoringFunction",
@@ -92,8 +89,8 @@ class CanaryMonitoringStack(Stack):
             code = _lambda.Code.from_asset("canary_monitoring/lambda"),
             handler = "resources_monitor.measuring_handler",
             environment={
-                "S3_BUCKET_NAME": config.S3_BUCKET_NAME,
-                "URL_FILE_NAME": config.URL_FILE_NAME,
+                "ALARM_PREFIX": f"{stage_name}{config.METRICS_NAMESPACE}-Alarm-",
+                "DYNAMO_RESOURCES_TABLE_NAME": stage_name + config.DYNAMO_RESOURCES_TABLE_NAME,
                 "METRICS_NAMESPACE": config.METRICS_NAMESPACE,
                 "CLOUDWATCH_DASHBOARD_NAME": config.CLOUDWATCH_DASHBOARD_NAME,
                 "MONITOR_INTERVAL_SECONDS": str(config.MONITOR_INTERVAL_SECONDS),
@@ -109,11 +106,7 @@ class CanaryMonitoringStack(Stack):
                         'cloudwatch:PutMetricAlarm',
                         'cloudwatch:DescribeAlarms',
                         'cloudwatch:DeleteAlarms',
-                        's3:Get*',
-                        's3:List*',
-                        's3:Describe*',
-                        's3-object-lambda:Get*',
-                        's3-object-lambda:List*'
+                        'dynamodb:Scan'
                     ],
                     resources=['*',],
                 )
@@ -132,6 +125,8 @@ class CanaryMonitoringStack(Stack):
             handler = "monitoring_alarm.lambda_handler",
             environment={
                 "SUBSCRIPTION_EMAIL_LIST": ",".join(config.SUBSCRIPTION_EMAIL_LIST),
+                "SENDER_EMAIL": config.SENDER_EMAIL,
+                "EMAIL_TEMPLATE_NAME": f'{stage_name}AlarmNotificationTemplate',
                 "DYNAMO_ALARM_TABLE_NAME": stage_name + config.DYNAMO_ALARM_TABLE_NAME
             },
             initial_policy=[
@@ -184,7 +179,7 @@ class CanaryMonitoringStack(Stack):
                 type=dynamodb.AttributeType.STRING
             ),
             sort_key=dynamodb.Attribute(
-                name='timestamp',
+                name="reversed_ts",
                 type=dynamodb.AttributeType.STRING
             ),
             table_name=stage_name + resources_table_name,
@@ -216,7 +211,21 @@ class CanaryMonitoringStack(Stack):
             template=ses.CfnTemplate.TemplateProperty(
                 template_name=f'{stage_name}AlarmNotificationTemplate',
                 subject_part='CRITICAL Alarm on {{alarm}}',
-                html_part=f'<h2>Your {stage_name} Amazon CloudWatch alarm was triggered</h2><table style=\"height: 245px; width: 70%; border-collapse: collapse;\" border=\"1\" cellspacing=\"70\" cellpadding=\"5\"><tbody><tr style=\"height: 45px;\"><td style=\"width: 22.6262%; background-color: #f2f3f3; height: 45px;\"><span style=\"color: #16191f;\"><strong>Impact</strong></span></td><td style=\"width: 60.5228%; background-color: #ffffff; height: 45px;\"><strong><span style=\"color: #d13212;\">Critical</span></strong></td></tr><tr style=\"height: 45px;\"><td style=\"width: 22.6262%; height: 45px; background-color: #f2f3f3;\"><span style=\"color: #16191f;\"><strong>Alarm Name</strong></span></td><td style=\"width: 60.5228%; height: 45px;\">{{alarm}}</td></tr><tr style=\"height: 45px;\"><td style=\"width: 22.6262%; height: 45px; background-color: #f2f3f3;\"><span style=\"color: #16191f;\"><strong>Account</strong></span></td><td style=\"width: 60.5228%; height: 45px;\"><p>{{account}} {{region}})</p></td></tr><tr style=\"height: 45px;\"><td style=\"width: 22.6262%; background-color: #f2f3f3; height: 45px;\"><span style=\"color: #16191f;\"><strong>Date-Time</strong></span></td><td style=\"width: 60.5228%; height: 45px;\">{{datetime}}</td></tr><tr style=\"height: 45px;\"><td style=\"width: 22.6262%; height: 45px; background-color: #f2f3f3;\"><span style=\"color: #16191f;\"><strong>Reason</strong></span></td><td style=\"width: 60.5228%; height: 45px;\">Current value <strong> {{value}} </strong> is {{comparisonoperator}} <strong> {{threshold}} </strong> </td></tr></tbody></table>'
+                html_part=f'<h2>Your {stage_name} Amazon CloudWatch alarm was triggered</h2>' + \
+                    '''<table style="height: 245px; width: 70%; border-collapse: collapse;" border="1" cellspacing="70" 
+                    cellpadding="5"><tbody><tr style="height: 45px;"><td style="width: 22.6262%; background-color: #f2f3f3; 
+                    height: 45px;"><span style="color: #16191f;"><strong>Impact</strong></span></td><td style="width: 60.5228%; 
+                    background-color: #ffffff; height: 45px;"><strong><span style="color: #d13212;">Critical</span></strong>
+                    </td></tr><tr style="height: 45px;"><td style="width: 22.6262%; height: 45px; background-color: #f2f3f3;">
+                    <span style="color: #16191f;"><strong>Alarm Name</strong></span></td><td style="width: 60.5228%; height: 45px;">
+                    {{alarm}}</td></tr><tr style="height: 45px;"><td style="width: 22.6262%; height: 45px; background-color: #f2f3f3;">
+                    <span style="color: #16191f;"><strong>Account</strong></span></td><td style="width: 60.5228%; height: 45px;">
+                    <p>{{account}} {{region}})</p></td></tr><tr style="height: 45px;"><td style="width: 22.6262%; 
+                    background-color: #f2f3f3; height: 45px;"><span style="color: #16191f;"><strong>Date-Time</strong></span></td>
+                    <td style="width: 60.5228%; height: 45px;">{{datetime}}</td></tr><tr style="height: 45px;">
+                    <td style="width: 22.6262%; height: 45px; background-color: #f2f3f3;"><span style="color: #16191f;">
+                    <strong>Reason</strong></span></td><td style="width: 60.5228%; height: 45px;">Current value <strong> 
+                    {{value}} </strong> is {{comparisonoperator}} <strong> {{threshold}} </strong> </td></tr></tbody></table>'''
             )
         )
 
