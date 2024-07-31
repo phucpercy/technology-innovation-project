@@ -34,7 +34,7 @@ def lambda_handler(event, context):
             table.delete_item(
                 Key={
                     'id': item['id'],
-                    'timestamp': item['timestamp']
+                    'reversed_ts': item['reversed_ts']
                 }
             )
             body = 'Deleted item ' + event['pathParameters']['id']
