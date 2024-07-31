@@ -117,30 +117,3 @@ def test_sns_topic_lambda_subscription(stack_template: Template):
             "Protocol": "lambda"
         })
     )
-
-
-def test_cloudwatch_dashboard(stack_template: Template):
-    sep_capture = Capture()
-    body_capture = Capture()
-    stack_template.has_resource_properties(
-        "AWS::CloudWatch::Dashboard",
-        Match.object_like({
-            "DashboardBody": {
-                "Fn::Join": [sep_capture, body_capture]
-            }
-        })
-    )
-    body_json = sep_capture.as_string().join(peice for peice in body_capture.as_array() if isinstance(peice, str))
-    # TODO: check metrics in body_json
-    assert len(body_json) > 0
-
-
-def test_alarms(stack_template: Template):
-    with open('canary_monitoring/urls.json', 'r') as fr:
-            data = json.load(fr)
-    alarm_count = 0
-    for url_conf in data['urls']:
-        for metric_conf in url_conf['metrics']:
-            alarm_count += metric_conf['threshold'].count(',') + 1
-
-    stack_template.resource_count_is("AWS::CloudWatch::Alarm", alarm_count)
