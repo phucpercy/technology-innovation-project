@@ -75,7 +75,7 @@ def test_dynamodb_table(stack_template: Template):
                     "AttributeType": "S"
                 },
                 {
-                    "AttributeName": "timestamp",
+                    "AttributeName": "reversed_ts",
                     "AttributeType": "S"
                 }
             ],
