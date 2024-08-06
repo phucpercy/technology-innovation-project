@@ -30,10 +30,16 @@ class CanaryPipelineStack(cdk.Stack):
         )
         gamma_stage = pipeline.add_stage(PipelineAppStage(self, "Gamma"))
         gamma_stage.add_pre(ShellStepWithEnvs(
-            "Test",
+            "Unit Test",
             input=code_source,
             install_commands=["python -m pip install -r requirements.txt"],
-            commands=["python -m pytest tests"]
+            commands=["python -m pytest tests/unit"]
+        ))
+        gamma_stage.add_post(ShellStepWithEnvs(
+            "Integration Test",
+            input=code_source,
+            install_commands=["python -m pip install -r requirements.txt"],
+            commands=["STAGE_NAME=Gamma python -m pytest tests/integration"]
         ))
         gamma_stage.add_post(ManualApprovalStep("Manual approval before production"))
         prod_stage = pipeline.add_stage(PipelineAppStage(self, "Prod"))
