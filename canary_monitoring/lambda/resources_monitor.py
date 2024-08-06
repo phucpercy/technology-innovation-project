@@ -81,16 +81,18 @@ def retrieve_url_resources(table_name):
     table = dynamodb.Table(table_name)
     result = table.scan(
         Select='SPECIFIC_ATTRIBUTES',
-        ProjectionExpression='urls',
-        Limit=1
+        ProjectionExpression='urls, reversed_ts'
     )
     print('scan table: ', result)
 
     count = result['Count']
     if count == 0:
         return json.loads(STUB_JSON)
+    
+    records = result['Items']
+    records = sorted(records, key=lambda item: item['reversed_ts'])
 
-    return result['Items'][0]
+    return records[0]
 
 
 def download_page(url):
