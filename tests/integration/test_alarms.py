@@ -24,9 +24,10 @@ TEST_URLS_JSON = '''{
 
 
 def get_resource_url():
+    stage_name = os.environ['STAGE_NAME']
     apigateway = boto3.client("apigatewayv2")
     response = apigateway.get_apis()
-    filtered_endpoint = [item['ApiEndpoint'] for item in response['Items'] if item['Name'] == 'ResourcesManagementApi']
+    filtered_endpoint = [item['ApiEndpoint'] for item in response['Items'] if item['Name'] == stage_name + 'ResourcesManagementApi']
     base_url = filtered_endpoint[0]
 
     return os.path.join(base_url, "resources")
