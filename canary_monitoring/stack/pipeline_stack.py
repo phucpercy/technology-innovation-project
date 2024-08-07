@@ -2,7 +2,8 @@ from functools import partial
 
 import aws_cdk as cdk
 from constructs import Construct
-from aws_cdk.pipelines import CodePipeline, CodePipelineSource, ShellStep, ManualApprovalStep
+from aws_cdk.pipelines import CodePipeline, CodePipelineSource, ShellStep, ManualApprovalStep, CodeBuildStep
+import aws_cdk.aws_iam as iam
 
 from canary_monitoring.stack.pipeline_app_stage import PipelineAppStage
 import config
@@ -35,11 +36,24 @@ class CanaryPipelineStack(cdk.Stack):
             install_commands=["python -m pip install -r requirements.txt"],
             commands=["python -m pytest tests/unit"]
         ))
-        gamma_stage.add_post(ShellStepWithEnvs(
+        gamma_stage.add_post(CodeBuildStep(
             "Integration Test",
             input=code_source,
             install_commands=["python -m pip install -r requirements.txt"],
-            commands=["STAGE_NAME=Gamma python -m pytest tests/integration"]
+            commands=["STAGE_NAME=Gamma python -m pytest tests/integration"],
+            env=config.export_env(),
+            role_policy_statements=[
+                iam.PolicyStatement(
+                    effect=iam.Effect.ALLOW,
+                    actions=[
+                        'apigateway:GET',
+                        'lambda:InvokeFunction',
+                        'lambda:ListFunctions',
+                        'cloudwatch:DescribeAlarms',
+                    ],
+                    resources=['*',],
+                )
+            ],
         ))
         gamma_stage.add_post(ManualApprovalStep("Manual approval before production"))
         prod_stage = pipeline.add_stage(PipelineAppStage(self, "Prod"))

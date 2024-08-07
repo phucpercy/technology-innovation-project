@@ -53,7 +53,10 @@ class CanaryMonitoringStack(Stack):
         self.create_ses_stack(stage_name)
 
         # Custom CloudWatch dashboard
-        self.create_cloudwatch_dashboard()
+        self.create_cloudwatch_dashboard(config.CLOUDWATCH_DASHBOARD_NAME, stage_name)
+
+        # Create self-monitoring alarms
+        self.create_self_monitor_alarms(stage_name, resources_monitor_function)
 
 
     def create_lambda_resources_management(self, stage_name):
@@ -150,7 +153,7 @@ class CanaryMonitoringStack(Stack):
             f'{stage_name}EventBridgeRule',
             schedule=events.Schedule.rate(duration),
             targets=[events_targets.LambdaFunction(handler=function,)],
-            rule_name=f'MonitoringSchedule',
+            rule_name=f'{stage_name}MonitoringSchedule',
         )
 
         return monitoring_scheduled_rule
@@ -199,8 +202,9 @@ class CanaryMonitoringStack(Stack):
         return sns_alarm_topic
 
 
-    def create_cloudwatch_dashboard(self):
-        dashboard = cw.Dashboard(self, config.CLOUDWATCH_DASHBOARD_NAME, dashboard_name=config.CLOUDWATCH_DASHBOARD_NAME)
+    def create_cloudwatch_dashboard(self, dashboard_name, stage_name):
+        name = stage_name + dashboard_name
+        dashboard = cw.Dashboard(self, name, dashboard_name=name)
         return dashboard
 
 
