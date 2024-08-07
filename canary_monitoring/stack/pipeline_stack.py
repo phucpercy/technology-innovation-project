@@ -57,3 +57,22 @@ class CanaryPipelineStack(cdk.Stack):
         ))
         prod_stage = pipeline.add_stage(PipelineAppStage(self, "Prod"))
         prod_stage.add_pre(ManualApprovalStep("Manual approval to deploy production"))
+        prod_stage.add_post(CodeBuildStep(
+            "Integration Test",
+            input=code_source,
+            install_commands=["python -m pip install -r requirements.txt"],
+            commands=["STAGE_NAME=Prod python -m pytest tests/integration"],
+            env=config.export_env(),
+            role_policy_statements=[
+                iam.PolicyStatement(
+                    effect=iam.Effect.ALLOW,
+                    actions=[
+                        'apigateway:GET',
+                        'lambda:InvokeFunction',
+                        'lambda:ListFunctions',
+                        'cloudwatch:DescribeAlarms',
+                    ],
+                    resources=['*',],
+                )
+            ],
+        ))

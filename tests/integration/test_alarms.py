@@ -38,9 +38,10 @@ def put_urls(url, json_str):
 
 
 def invoke_monitor_lambda(func_name):
+    stage_name = os.environ['STAGE_NAME']
     client = boto3.client("lambda")
     response = client.list_functions(MaxItems=10)
-    filtered_func_names = [item['FunctionName'] for item in response['Functions'] if func_name in item['FunctionName']]
+    filtered_func_names = [item['FunctionName'] for item in response['Functions'] if (func_name in item['FunctionName'] and stage_name in item['FunctionName'])]
     response = client.invoke(
         FunctionName=filtered_func_names[0],
         InvocationType="RequestResponse"
