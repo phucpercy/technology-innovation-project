@@ -1,58 +1,72 @@
+# Technology Innovation Project
+Welcome to the Technology Innovation Project! This repository showcases a project developed using the AWS Cloud Development Kit (CDK) with Python, focusing on building and deploying a web canary and web crawler, setting up monitoring and alerting, and creating a CI/CD pipeline.
 
-# Welcome to your CDK Python project!
+## Project Overview
+This project demonstrates the use of AWS CDK to define and deploy cloud infrastructure using Python. It includes multiple stages, each building on the previous one to extend the functionality and robustness of the deployed solution.
 
-This is a blank project for CDK development with Python.
+## Project Architecture
+![alt text](https://github.com/phucpercy/technology-innovation-project/blob/main/images/Architecture.png?raw=true "Logo Title Text 1")
+## Prerequisites
+- Python 3.6 or later
+- AWS CDK
 
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
-
-This project is set up like a standard Python project.  The initialization
-process also creates a virtualenv within this project, stored under the `.venv`
-directory.  To create the virtualenv it assumes that there is a `python3`
-(or `python` for Windows) executable in your path with access to the `venv`
-package. If for any reason the automatic creation of the virtualenv fails,
-you can create the virtualenv manually.
-
-To manually create a virtualenv on MacOS and Linux:
-
-```
-$ python3 -m venv .venv
-```
-
-After the init process completes and the virtualenv is created, you can use the following
-step to activate your virtualenv.
-
-```
-$ source .venv/bin/activate
+## Getting Started
+### Setting Up the Virtual Environment
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
 ```
 
-If you are a Windows platform, you would activate the virtualenv like this:
-
+### Installing Dependencies
+```sh
+pip install -r requirements.txt
 ```
-% .venv\Scripts\activate.bat
-```
-
-Once the virtualenv is activated, you can install the required dependencies.
-
-```
-$ pip install -r requirements.txt
+### Synthesizing the CloudFormation Template
+```sh
+cdk synth
 ```
 
-At this point you can now synthesize the CloudFormation template for this code.
-
+### Deploy shared stack for stages
+```sh
+cdk deploy CanarySharedStack
 ```
-$ cdk synth
+
+### Deploy system
+```sh
+cdk deploy CanaryPipelineStack
 ```
 
-To add additional dependencies, for example other CDK libraries, just add
-them to your `setup.py` file and rerun the `pip install -r requirements.txt`
-command.
+## Project Components
+### Component 1: Canary Monitoring Application
+- Functionalities: Monitoring Lambda function is triggered periodically by EventBridge rules to monitoing a list of URLs, which is stored in the DynamoDB and managed by another Lambda function. If pre-defined threshold for each URL is crossed, SNS will trigger a Lambda to email to users by SES and store the details in DynamoDB.
+- Key Components: Lambda, DynamoDB, SNS, SES, Cloudwatch, EventBridge
 
-## Useful commands
+### Component 2: Extending the Canary into a Web Crawler
+- Functionalities: Extend the canary to crawl a custom list of websites stored in an S3 bucket.
+- Key Components: AWS Monitoring and Notification services
 
- * `cdk ls`          list all stacks in the app
- * `cdk synth`       emits the synthesized CloudFormation template
- * `cdk deploy`      deploy this stack to your default AWS account/region
- * `cdk diff`        compare deployed stack with current state
- * `cdk docs`        open CDK documentation
+### Component 3: Creating a Multi-Stage CI/CD Pipeline
+Objective: Create a CI/CD pipeline with Beta/Gamma and Prod stages using AWS CDK, including bake times, code reviews, and test blockers.
+Key Components: AWS CodePipeline, CodeDeploy, PyTest
 
-Enjoy!
+Stage 5: Building a CRUD API for the Web Crawler
+Objective: Build a public CRUD API Gateway endpoint for managing the list of websites to crawl, using DynamoDB.
+Key Components: API Gateway, DynamoDB
+Learning Objectives:
+Creating RESTful API interfaces
+Implementing business logic with Python
+Extending CI/CD pipelines to include CRUD operations and DynamoDB performance tests
+Useful Commands
+cdk ls: List all stacks in the app
+cdk synth: Emit the synthesized CloudFormation template
+cdk deploy: Deploy the stack to your default AWS account/region
+cdk diff: Compare deployed stack with current state
+cdk docs: Open CDK documentation
+Project Structure
+app.py: Main entry point for the CDK application
+config.py: Configuration file for the project
+requirements.txt: List of required Python packages
+requirements-dev.txt: List of development dependencies
+tests/: Directory containing unit tests
+.gitignore: Git ignore file
+
