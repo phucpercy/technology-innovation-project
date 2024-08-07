@@ -41,5 +41,5 @@ class CanaryPipelineStack(cdk.Stack):
             install_commands=["python -m pip install -r requirements.txt"],
             commands=["STAGE_NAME=Gamma python -m pytest tests/integration"]
         ))
-        gamma_stage.add_post(ManualApprovalStep("Manual approval before production"))
         prod_stage = pipeline.add_stage(PipelineAppStage(self, "Prod"))
+        prod_stage.add_pre(ManualApprovalStep("Manual approval to deploy production"))
