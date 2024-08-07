@@ -252,3 +252,15 @@ class CanaryMonitoringStack(Stack):
                 handler=resources_management_function
             )
         )
+
+
+    def create_self_monitor_alarms(self, stage_name, monitor_lambda):
+        erorr_metric = monitor_lambda.metric_errors(period=Duration.minutes(3))
+        alarm: cw.Alarm = erorr_metric.create_alarm(
+            self,
+            f"{stage_name}Self{config.METRICS_NAMESPACE}-Alarm-Error",
+            threshold=3,
+            evaluation_periods=1,
+            datapoints_to_alarm=1,
+            comparison_operator=cw.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD
+        )
