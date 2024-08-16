@@ -37,7 +37,7 @@ class CanaryMonitoringStack(Stack):
         monitoring_alarm_function = self.create_lambda_monitoring_alarm(stage_name)
         add_lambda_subscription(sns_alarm_topic, monitoring_alarm_function)
         resources_management_function = self.create_lambda_resources_management(stage_name)
-        self.create_resources_management_gateway(resources_management_function)
+        self.create_resources_management_gateway(resources_management_function, stage_name)
 
         # Define Event Bridge Rule
         self.create_event_bridge_rule(
@@ -234,12 +234,9 @@ class CanaryMonitoringStack(Stack):
         )
 
 
-    def create_resources_management_gateway(self, resources_management_function):
-        api = apigateway.HttpApi(
-            self,
-            "ResourcesManagementApi",
-            api_name="ResourcesManagementApi"
-        )
+    def create_resources_management_gateway(self, resources_management_function, stage_name):
+        name = stage_name + "ResourcesManagementApi"
+        api = apigateway.HttpApi(self, name, api_name=name)
         api.add_routes(
             path='/resources',
             methods=[HttpMethod.GET, HttpMethod.PUT],

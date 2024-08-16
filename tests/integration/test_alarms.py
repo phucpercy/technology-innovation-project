@@ -24,9 +24,10 @@ TEST_URLS_JSON = '''{
 
 
 def get_resource_url():
+    stage_name = os.environ['STAGE_NAME']
     apigateway = boto3.client("apigatewayv2")
     response = apigateway.get_apis()
-    filtered_endpoint = [item['ApiEndpoint'] for item in response['Items'] if item['Name'] == 'ResourcesManagementApi']
+    filtered_endpoint = [item['ApiEndpoint'] for item in response['Items'] if item['Name'] == stage_name + 'ResourcesManagementApi']
     base_url = filtered_endpoint[0]
 
     return os.path.join(base_url, "resources")
@@ -38,9 +39,10 @@ def put_urls(url, json_str):
 
 
 def invoke_monitor_lambda(func_name):
+    stage_name = os.environ['STAGE_NAME']
     client = boto3.client("lambda")
     response = client.list_functions(MaxItems=10)
-    filtered_func_names = [item['FunctionName'] for item in response['Functions'] if func_name in item['FunctionName']]
+    filtered_func_names = [item['FunctionName'] for item in response['Functions'] if (func_name in item['FunctionName'] and stage_name in item['FunctionName'])]
     response = client.invoke(
         FunctionName=filtered_func_names[0],
         InvocationType="RequestResponse"
