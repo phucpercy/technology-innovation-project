@@ -9,6 +9,7 @@ This project demonstrates the use of AWS CDK to define and deploy cloud infrastr
 ## Prerequisites
 - Python 3.6 or later
 - AWS CDK
+- AWS Credentials (AWS Access Key and Secret Access Key)
 
 ## Getting Started
 ### Setting Up the Virtual Environment
@@ -46,27 +47,26 @@ cdk deploy CanaryPipelineStack
 - Key Components: AWS Monitoring and Notification services
 
 ### Component 3: Creating a Multi-Stage CI/CD Pipeline
-Objective: Create a CI/CD pipeline with Beta/Gamma and Prod stages using AWS CDK, including bake times, code reviews, and test blockers.
-Key Components: AWS CodePipeline, CodeDeploy, PyTest
+- Functionalities: CI/CD pipeline with Beta/Gamma and Prod stages using AWS CodePipeline, which auto pull commit from `main` branch and start pipeline. All stages have to pass test to start deployment. Especially, Prod stage need to be approved manually to be deployed.
+- Key Components: AWS CodePipeline, CodeBuild, CloudFormation
 
-Stage 5: Building a CRUD API for the Web Crawler
-Objective: Build a public CRUD API Gateway endpoint for managing the list of websites to crawl, using DynamoDB.
-Key Components: API Gateway, DynamoDB
-Learning Objectives:
-Creating RESTful API interfaces
-Implementing business logic with Python
-Extending CI/CD pipelines to include CRUD operations and DynamoDB performance tests
-Useful Commands
-cdk ls: List all stacks in the app
-cdk synth: Emit the synthesized CloudFormation template
-cdk deploy: Deploy the stack to your default AWS account/region
-cdk diff: Compare deployed stack with current state
-cdk docs: Open CDK documentation
-Project Structure
-app.py: Main entry point for the CDK application
-config.py: Configuration file for the project
-requirements.txt: List of required Python packages
-requirements-dev.txt: List of development dependencies
-tests/: Directory containing unit tests
-.gitignore: Git ignore file
+### Component 4: Building a CRUD API for the Web Crawler
+- Functionalities: CRUD API Gateway endpoint to a Lambda function for managing the list of websites to be monitored, which is stored in DynamoDB.
+- Key Components: API Gateway, DynamoDB, Lambda
+
+## Useful Commands
+```sh
+cdk ls # List all stacks in the app
+cdk synth # Emit the synthesized CloudFormation template
+cdk deploy # Deploy the stack to your default AWS account/region
+cdk diff # Compare deployed stack with current state
+cdk docs # Open CDK documentation
+```
+## Project Structure
+- app.py: Main entry point for the CDK application
+- config.py: Configuration file for the project
+- requirements.txt: List of required Python packages
+- requirements-dev.txt: List of development dependencies
+- tests/: Directory containing unit tests
+- .gitignore: Git ignore file
 
