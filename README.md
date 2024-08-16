@@ -5,7 +5,7 @@ Welcome to the Technology Innovation Project! This repository showcases a projec
 This project demonstrates the use of AWS CDK to define and deploy cloud infrastructure using Python. It includes multiple stages, each building on the previous one to extend the functionality and robustness of the deployed solution.
 
 ## Project Architecture
-![alt text](https://github.com/phucpercy/technology-innovation-project/blob/main/images/Architecture.png?raw=true "Logo Title Text 1")
+![alt text](https://github.com/phucpercy/technology-innovation-project/blob/main/images/Architecture-Final.png?raw=true "Logo Title Text 1")
 ## Prerequisites
 - Python 3.6 or later
 - AWS CDK
